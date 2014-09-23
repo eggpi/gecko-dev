@@ -1431,11 +1431,11 @@ XPCJSRuntime::CustomLargeAllocationFailureCallback()
 }
 
 size_t
-XPCJSRuntime::SizeOfIncludingThis(MallocSizeOf mallocSizeOf)
+XPCJSRuntime::SizeOfIncludingThis(MallocSizeOf mallocSizeOf, MallocSizeOf JSEngineMallocSizeOf)
 {
     size_t n = 0;
     n += mallocSizeOf(this);
-    n += mWrappedJSMap->SizeOfIncludingThis(mallocSizeOf);
+    n += mWrappedJSMap->SizeOfIncludingThis(mallocSizeOf, JSEngineMallocSizeOf);
     n += mIID2NativeInterfaceMap->SizeOfIncludingThis(mallocSizeOf);
     n += mClassInfo2NativeSetMap->ShallowSizeOfIncludingThis(mallocSizeOf);
     n += mNativeSetMap->SizeOfIncludingThis(mallocSizeOf);
@@ -1823,7 +1823,19 @@ NS_IMPL_ISUPPORTS(JSMainRuntimeTemporaryPeakReporter, nsIMemoryReporter)
         rtTotal += amount;                                                    \
     } while (0)
 
-MOZ_DEFINE_MALLOC_SIZE_OF(JSMallocSizeOf)
+static size_t JSMallocSizeOf(const void* aPtr) {
+    MOZ_REPORT(aPtr);
+    size_t ret = moz_malloc_size_of(aPtr);
+    MOZ_RELEASE_ASSERT(!aPtr || ret);
+    return ret;
+}
+
+static size_t JSPartitionedMallocSizeOf(const void* aPtr) {
+    MOZ_REPORT(aPtr);
+    size_t ret = partitionAllocGetSize(aPtr);
+    MOZ_RELEASE_ASSERT(!aPtr || ret);
+    return ret;
+}
 
 namespace xpc {
 
@@ -2649,7 +2661,7 @@ class XPCJSRuntimeStats : public JS::RuntimeStats
   public:
     XPCJSRuntimeStats(WindowPaths *windowPaths, WindowPaths *topWindowPaths,
                       bool getLocations, bool anonymize)
-      : JS::RuntimeStats(JSMallocSizeOf),
+      : JS::RuntimeStats(JSPartitionedMallocSizeOf),
         mWindowPaths(windowPaths),
         mTopWindowPaths(topWindowPaths),
         mGetLocations(getLocations),
@@ -2796,7 +2808,7 @@ JSReporter::CollectReports(WindowPaths *windowPaths,
         return NS_ERROR_FAILURE;
     }
 
-    size_t xpcJSRuntimeSize = xpcrt->SizeOfIncludingThis(JSMallocSizeOf);
+    size_t xpcJSRuntimeSize = xpcrt->SizeOfIncludingThis(JSMallocSizeOf, JSPartitionedMallocSizeOf);
 
     size_t wrappedJSSize = xpcrt->GetWrappedJSMap()->SizeOfWrappedJS(JSMallocSizeOf);
 
@@ -2900,6 +2912,12 @@ JSReporter::CollectReports(WindowPaths *windowPaths,
     return NS_OK;
 }
 
+size_t checkedMallocSizeOf(const void *ptr) {
+    size_t ret = partitionAllocGetSize(ptr);
+    MOZ_ASSERT(!ptr || ret != 0);
+    return ret;
+}
+
 static nsresult
 JSSizeOfTab(JSObject *objArg, size_t *jsObjectsSize, size_t *jsStringsSize,
             size_t *jsPrivateSize, size_t *jsOtherSize)
@@ -2909,7 +2927,7 @@ JSSizeOfTab(JSObject *objArg, size_t *jsObjectsSize, size_t *jsStringsSize,
 
     TabSizes sizes;
     OrphanReporter orphanReporter(XPCConvert::GetISupportsFromJSObject);
-    NS_ENSURE_TRUE(JS::AddSizeOfTab(rt, obj, moz_malloc_size_of,
+    NS_ENSURE_TRUE(JS::AddSizeOfTab(rt, obj, checkedMallocSizeOf,
                                     &orphanReporter, &sizes),
                    NS_ERROR_OUT_OF_MEMORY);
 

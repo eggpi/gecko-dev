@@ -72,7 +72,7 @@ public:
 
     void ShutdownMarker();
 
-    size_t SizeOfIncludingThis(mozilla::MallocSizeOf mallocSizeOf) const;
+    size_t SizeOfIncludingThis(mozilla::MallocSizeOf mallocSizeOf, mozilla::MallocSizeOf JSEngineMallocSizeOf) const;
 
     // Report the sum of SizeOfIncludingThis() for all wrapped JS in the map.
     // Each wrapped JS is only in one map.

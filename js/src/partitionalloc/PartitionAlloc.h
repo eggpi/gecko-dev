@@ -631,8 +631,11 @@ MOZ_ALWAYS_INLINE bool partitionAllocSupportsGetSize()
 #endif
 }
 
-MOZ_ALWAYS_INLINE size_t partitionAllocGetSize(void* ptr)
+MOZ_ALWAYS_INLINE size_t partitionAllocGetSize(const void* cptr)
 {
+    void* ptr = const_cast<void *>(cptr);
+    if (!cptr) return 0;
+
     // No need to lock here. Only 'ptr' being freed by another thread could
     // cause trouble, and the caller is responsible for that not happening.
     MOZ_ASSERT(partitionAllocSupportsGetSize());

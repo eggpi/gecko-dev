@@ -146,16 +146,42 @@ JSObject2WrappedJSMap::ShutdownMarker()
 }
 
 size_t
-JSObject2WrappedJSMap::SizeOfIncludingThis(mozilla::MallocSizeOf mallocSizeOf) const
+JSObject2WrappedJSMap::SizeOfIncludingThis(mozilla::MallocSizeOf mallocSizeOf, mozilla::MallocSizeOf JSEngineMallocSizeOf) const
 {
     size_t n = mallocSizeOf(this);
-    n += mTable.sizeOfExcludingThis(mallocSizeOf);
+    // XXX(ggp) Even though mTable itself is allocated using malloc
+    // (through JSObject2WrappedJSMap::newMap), its implementation
+    // (detail::HashTable) allocates entries using js::SystemAllocPolicy,
+    // which eventually uses js_malloc. So for the sizes of mTable and
+    // mTable.impl, we should measure using moz_malloc_size_of; however,
+    // for measurements excluding |this| like the one below, we need to
+    // use JSEngineMallocSizeOf.
+    n += mTable.sizeOfExcludingThis(JSEngineMallocSizeOf);
     return n;
 }
 
 size_t
 JSObject2WrappedJSMap::SizeOfWrappedJS(mozilla::MallocSizeOf mallocSizeOf) const
 {
+    // XXX(ggp) On the other hand, I don't quite know why this works
+    // with moz_malloc_size_of; it looks like the entries added to the
+    // underlying hash table implementation are allocated via malloc
+    // rather than js_malloc.
+    // If that's true, what we have here is:
+    // +--------------------+---------------+
+    // |    THING           | ALLOCATED VIA |
+    // +--------------------+---------------+
+    // |    this            |     malloc    |
+    // +--------------------+---------------+
+    // |    mTable          |     malloc    |
+    // +--------------------+---------------+
+    // |  mTable.impl       |    js_malloc  |
+    // +--------------------+---------------+
+    // |  mTable.impl.table |    js_malloc  |
+    // +--------------------+---------------+
+    // | actual pointers in |    malloc     |
+    // | mTable.impl.table  |               |
+    // +--------------------+---------------+
     size_t n = 0;
     for (Map::Range r = mTable.all(); !r.empty(); r.popFront())
         n += r.front().value()->SizeOfIncludingThis(mallocSizeOf);

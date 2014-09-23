@@ -616,7 +616,7 @@ public:
                                        js::CTypesActivityType type);
     static bool InterruptCallback(JSContext *cx);
 
-    size_t SizeOfIncludingThis(mozilla::MallocSizeOf mallocSizeOf);
+    size_t SizeOfIncludingThis(mozilla::MallocSizeOf mallocSizeOf, mozilla::MallocSizeOf JSEngineMallocSizeOf);
 
     AutoMarkingPtr**  GetAutoRootsAdr() {return &mAutoRoots;}
 

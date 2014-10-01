@@ -215,5 +215,9 @@
 #define jemalloc_stats_impl              mozmem_jemalloc_impl(jemalloc_stats)
 #define jemalloc_purge_freed_pages_impl  mozmem_jemalloc_impl(jemalloc_purge_freed_pages)
 #define jemalloc_free_dirty_pages_impl   mozmem_jemalloc_impl(jemalloc_free_dirty_pages)
+#define malloc_create_partition_impl     mozmem_jemalloc_impl(malloc_create_partition)
+#define malloc_from_partition_impl       mozmem_jemalloc_impl(malloc_from_partition)
+#define realloc_from_partition_impl      mozmem_jemalloc_impl(realloc_from_partition)
+#define calloc_from_partition_impl       mozmem_jemalloc_impl(calloc_from_partition)
 
 #endif /* mozmemory_wrap_h */

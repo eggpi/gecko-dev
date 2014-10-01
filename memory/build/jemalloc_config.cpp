@@ -28,6 +28,17 @@
 #define MOZ_MALLOC_BUILD_OPTIONS ",junk:free"
 #endif
 
+/*
+ * XXXggp The thread cache (tcache) has been disabled for two reasons:
+ * 1) It increases our RSS -- see bug 762448;
+ * 2) It breaks our heap partitioning.
+ *
+ * Point 2 is a bit subtle, so it's worth clarifying. While je_mallocx() is
+ * guaranteed to bypass the thread cache and allocate straight from an arena
+ * when the MALLOCX_ARENA flag is passed, calling free() on the returned pointer
+ * will put it in the tcache. This means a later malloc() in the same thread may
+ * receive that pointer, served from the tcache, defeating the partitioning.
+ */
 #define MOZ_MALLOC_OPTIONS "narenas:1,tcache:false"
 MFBT_DATA const char* je_(malloc_conf) =
   MOZ_MALLOC_OPTIONS MOZ_MALLOC_BUILD_OPTIONS;

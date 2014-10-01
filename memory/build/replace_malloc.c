@@ -243,6 +243,46 @@ malloc_good_size_impl(size_t size)
   return replace_malloc_good_size(size);
 }
 
+unsigned int
+malloc_create_partition_impl()
+{
+  if (MOZ_UNLIKELY(!replace_malloc_initialized))
+    init();
+  if (MOZ_LIKELY(!replace_malloc_create_partition))
+    return je_malloc_create_partition();
+  return replace_malloc_create_partition();
+}
+
+void*
+malloc_from_partition_impl(unsigned int pd, size_t bytes)
+{
+  if (MOZ_UNLIKELY(!replace_malloc_initialized))
+    init();
+  if (MOZ_LIKELY(!replace_malloc_from_partition))
+    return je_malloc_from_partition(pd, bytes);
+  return replace_malloc_from_partition(pd, bytes);
+}
+
+void*
+realloc_from_partition_impl(unsigned int pd, void* p, size_t bytes)
+{
+  if (MOZ_UNLIKELY(!replace_malloc_initialized))
+    init();
+  if (MOZ_LIKELY(!replace_realloc_from_partition))
+    return je_realloc_from_partition(pd, p, bytes);
+  return replace_realloc_from_partition(pd, p, bytes);
+}
+
+void*
+calloc_from_partition_impl(unsigned int pd, size_t nmemb, size_t size)
+{
+  if (MOZ_UNLIKELY(!replace_malloc_initialized))
+    init();
+  if (MOZ_LIKELY(!replace_calloc_from_partition))
+    return je_calloc_from_partition(pd, nmemb, size);
+  return replace_calloc_from_partition(pd, nmemb, size);
+}
+
 void
 jemalloc_stats_impl(jemalloc_stats_t *stats)
 {

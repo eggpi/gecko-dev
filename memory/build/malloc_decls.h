@@ -38,6 +38,9 @@ typedef MALLOC_USABLE_SIZE_CONST_PTR void * usable_ptr_t;
 #  ifndef MALLOC_DECL_VOID
 #    define MALLOC_DECL_VOID(func, ...) MALLOC_DECL(func, void, __VA_ARGS__)
 #  endif
+#  ifndef MALLOC_DECL_NOARGS
+#    define MALLOC_DECL_NOARGS(func, return_type) MALLOC_DECL(func, return_type)
+#  endif
 
 #  if MALLOC_FUNCS & MALLOC_FUNCS_INIT
 MALLOC_DECL(init, void, const malloc_table_t *)
@@ -61,9 +64,14 @@ MALLOC_DECL(malloc_good_size, size_t, size_t)
 MALLOC_DECL_VOID(jemalloc_stats, jemalloc_stats_t *)
 MALLOC_DECL_VOID(jemalloc_purge_freed_pages, void)
 MALLOC_DECL_VOID(jemalloc_free_dirty_pages, void)
+MALLOC_DECL_NOARGS(malloc_create_partition, unsigned int)
+MALLOC_DECL(malloc_from_partition, void *, unsigned int, size_t)
+MALLOC_DECL(realloc_from_partition, void *, unsigned int, void *, size_t)
+MALLOC_DECL(calloc_from_partition, void *, unsigned int, size_t, size_t)
 #  endif
 
 #  undef MALLOC_DECL_VOID
+#  undef MALLOC_DECL_NOARGS
 #endif /* MALLOC_DECL */
 
 #undef MALLOC_DECL

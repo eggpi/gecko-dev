@@ -140,6 +140,38 @@ compute_bin_unused_and_bookkeeping(jemalloc_stats_t *stats, unsigned int narenas
     stats->bin_unused = bin_unused;
 }
 
+MOZ_JEMALLOC_API unsigned int
+malloc_create_partition_impl()
+{
+  unsigned int ret;
+  CTL_GET("arenas.extend", ret);
+  return ret;
+}
+
+MOZ_JEMALLOC_API void*
+malloc_from_partition_impl(unsigned int pd, size_t bytes)
+{
+  return je_mallocx(bytes ? bytes : 1, MALLOCX_ARENA(pd));
+}
+
+MOZ_JEMALLOC_API void*
+realloc_from_partition_impl(unsigned int pd, void* p, size_t bytes)
+{
+  if (!p) return malloc_from_partition_impl(pd, bytes);
+  return je_rallocx(p, bytes ? bytes : 1, MALLOCX_ARENA(pd));
+}
+
+MOZ_JEMALLOC_API void*
+calloc_from_partition_impl(unsigned int pd, size_t nmemb, size_t size)
+{
+  size_t bytes = nmemb * size;
+  if (nmemb != 0 && size != bytes / nmemb) {
+      // overflow!
+      return NULL;
+  }
+  return je_mallocx(bytes ? bytes : 1, MALLOCX_ARENA(pd) | MALLOCX_ZERO);
+}
+
 MOZ_JEMALLOC_API void
 jemalloc_stats_impl(jemalloc_stats_t *stats)
 {

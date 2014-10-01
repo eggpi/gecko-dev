@@ -6684,6 +6684,30 @@ jemalloc_stats_impl(jemalloc_stats_t *stats)
 				stats->page_cache + stats->bookkeeping);
 }
 
+MOZ_JEMALLOC_API unsigned int
+malloc_create_partition_impl()
+{
+  return 0;
+}
+
+MOZ_JEMALLOC_API void *
+malloc_from_partition_impl(unsigned int pd, size_t bytes)
+{
+  return malloc_impl(bytes);
+}
+
+MOZ_JEMALLOC_API void *
+realloc_from_partition_impl(unsigned int pd, void *p, size_t bytes)
+{
+  return realloc_impl(p, bytes);
+}
+
+MOZ_JEMALLOC_API void *
+calloc_from_partition_impl(unsigned int pd, size_t nmemb, size_t size)
+{
+  return calloc_impl(nmemb, size);
+}
+
 #ifdef MALLOC_DOUBLE_PURGE
 
 /* Explicitly remove all of this chunk's MADV_FREE'd pages from memory. */

@@ -89,6 +89,8 @@ typedef struct {
   return_type (*name ## _hook)(return_type, __VA_ARGS__);
 #define MALLOC_DECL_VOID(name, ...) \
   void (*name ## _hook)(__VA_ARGS__);
+#define MALLOC_DECL_NOARGS(name, return_type) \
+  return_type (*name ## _hook)(void);
 
 typedef struct {
 #include "malloc_decls.h"

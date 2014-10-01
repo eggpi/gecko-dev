@@ -9,6 +9,8 @@
  * This header is meant to be used when the following functions are
  * necessary:
  *   - malloc_good_size (used to be called je_malloc_usable_in_advance)
+ *   - malloc_create_partition
+ *   - {m,re,c}alloc_from_partition
  *   - jemalloc_stats
  *   - jemalloc_purge_freed_pages
  *   - jemalloc_free_dirty_pages
@@ -48,6 +50,14 @@ static inline size_t _malloc_good_size(size_t size) {
 
 #  define malloc_good_size _malloc_good_size
 #endif
+
+MOZ_JEMALLOC_API unsigned int malloc_create_partition();
+
+MOZ_JEMALLOC_API void* malloc_from_partition(unsigned int pd, size_t bytes);
+
+MOZ_JEMALLOC_API void* realloc_from_partition(unsigned int pd, void* p, size_t bytes);
+
+MOZ_JEMALLOC_API void* calloc_from_partition(unsigned int pd, size_t nmemb, size_t size);
 
 MOZ_JEMALLOC_API void jemalloc_stats(jemalloc_stats_t *stats);
 

@@ -96,12 +96,14 @@
 // - Better checking for wild pointers in free().
 // - Better freelist masking function to guarantee fault on 32-bit.
 
-#include "wtf/Assertions.h"
-#include "wtf/BitwiseOperations.h"
-#include "wtf/ByteSwap.h"
-#include "wtf/CPU.h"
+#include "mozilla/Types.h"
+#include "mozilla/Attributes.h"
+#include "mozilla/Endian.h"
+#include "mozilla/Assertions.h"
+#include "mozilla/Likely.h"
+#include "mozilla/MathAlgorithms.h"
+
 #include "wtf/PageAllocator.h"
-#include "wtf/SpinLock.h"
 
 #include <limits.h>
 
@@ -109,7 +111,7 @@
 #include <stdlib.h>
 #endif
 
-#if ENABLE(ASSERT)
+#if DEBUG
 #include <string.h>
 #endif
 
@@ -190,7 +192,7 @@ static const size_t kBitsPerSizet = sizeof(void*) * CHAR_BIT;
 // Constants for the memory reclaim logic.
 static const size_t kMaxFreeableSpans = 16;
 
-#if ENABLE(ASSERT)
+#if DEBUG
 // These two byte values match tcmalloc.
 static const unsigned char kUninitializedByte = 0xAB;
 static const unsigned char kFreedByte = 0xCD;
@@ -253,7 +255,7 @@ struct PartitionSuperPageExtentEntry {
     PartitionSuperPageExtentEntry* next;
 };
 
-struct WTF_EXPORT PartitionRootBase {
+struct MOZ_EXPORT PartitionRootBase {
     size_t totalSizeOfCommittedPages;
     size_t totalSizeOfSuperPages;
     unsigned numBuckets;
@@ -277,8 +279,8 @@ struct WTF_EXPORT PartitionRootBase {
 // Never instantiate a PartitionRoot directly, instead use PartitionAlloc.
 struct PartitionRoot : public PartitionRootBase {
     // The PartitionAlloc templated class ensures the following is correct.
-    ALWAYS_INLINE PartitionBucket* buckets() { return reinterpret_cast<PartitionBucket*>(this + 1); }
-    ALWAYS_INLINE const PartitionBucket* buckets() const { return reinterpret_cast<const PartitionBucket*>(this + 1); }
+    MOZ_ALWAYS_INLINE PartitionBucket* buckets() { return reinterpret_cast<PartitionBucket*>(this + 1); }
+    MOZ_ALWAYS_INLINE const PartitionBucket* buckets() const { return reinterpret_cast<const PartitionBucket*>(this + 1); }
 };
 
 // Never instantiate a PartitionRootGeneric directly, instead use PartitionAllocatorGeneric.
@@ -300,20 +302,20 @@ enum PartitionAllocFlags {
     PartitionAllocReturnNull = 1 << 0,
 };
 
-WTF_EXPORT void partitionAllocInit(PartitionRoot*, size_t numBuckets, size_t maxAllocation);
-WTF_EXPORT bool partitionAllocShutdown(PartitionRoot*);
-WTF_EXPORT void partitionAllocGenericInit(PartitionRootGeneric*);
-WTF_EXPORT bool partitionAllocGenericShutdown(PartitionRootGeneric*);
+MOZ_EXPORT void partitionAllocInit(PartitionRoot*, size_t numBuckets, size_t maxAllocation);
+MOZ_EXPORT bool partitionAllocShutdown(PartitionRoot*);
+MOZ_EXPORT void partitionAllocGenericInit(PartitionRootGeneric*);
+MOZ_EXPORT bool partitionAllocGenericShutdown(PartitionRootGeneric*);
 
-WTF_EXPORT NEVER_INLINE void* partitionAllocSlowPath(PartitionRootBase*, int, size_t, PartitionBucket*);
-WTF_EXPORT NEVER_INLINE void partitionFreeSlowPath(PartitionPage*);
-WTF_EXPORT NEVER_INLINE void* partitionReallocGeneric(PartitionRootGeneric*, void*, size_t);
+MOZ_EXPORT MOZ_NEVER_INLINE void* partitionAllocSlowPath(PartitionRootBase*, int, size_t, PartitionBucket*);
+MOZ_EXPORT MOZ_NEVER_INLINE void partitionFreeSlowPath(PartitionPage*);
+MOZ_EXPORT MOZ_NEVER_INLINE void* partitionReallocGeneric(PartitionRootGeneric*, void*, size_t);
 
 #ifndef NDEBUG
-WTF_EXPORT void partitionDumpStats(const PartitionRoot&);
+MOZ_EXPORT void partitionDumpStats(const PartitionRoot&);
 #endif
 
-ALWAYS_INLINE PartitionFreelistEntry* partitionFreelistMask(PartitionFreelistEntry* ptr)
+MOZ_ALWAYS_INLINE PartitionFreelistEntry* partitionFreelistMask(PartitionFreelistEntry* ptr)
 {
     // We use bswap on little endian as a fast mask for two reasons:
     // 1) If an object is freed and its vtable used where the attacker doesn't
@@ -323,78 +325,78 @@ ALWAYS_INLINE PartitionFreelistEntry* partitionFreelistMask(PartitionFreelistEnt
     // corrupt a freelist pointer, partial pointer overwrite attacks are
     // thwarted.
     // For big endian, similar guarantees are arrived at with a negation.
-#if CPU(BIG_ENDIAN)
+#if MOZ_BIG_ENDIAN
     uintptr_t masked = ~reinterpret_cast<uintptr_t>(ptr);
 #else
-    uintptr_t masked = bswapuintptrt(reinterpret_cast<uintptr_t>(ptr));
+    uintptr_t masked = mozilla::detail::Swapper<uintptr_t>::swap(reinterpret_cast<uintptr_t>(ptr));
 #endif
     return reinterpret_cast<PartitionFreelistEntry*>(masked);
 }
 
-ALWAYS_INLINE size_t partitionCookieSizeAdjustAdd(size_t size)
+MOZ_ALWAYS_INLINE size_t partitionCookieSizeAdjustAdd(size_t size)
 {
-#if ENABLE(ASSERT)
+#if DEBUG
     // Add space for cookies, checking for integer overflow.
-    ASSERT(size + (2 * kCookieSize) > size);
+    MOZ_ASSERT(size + (2 * kCookieSize) > size);
     size += 2 * kCookieSize;
 #endif
     return size;
 }
 
-ALWAYS_INLINE size_t partitionCookieSizeAdjustSubtract(size_t size)
+MOZ_ALWAYS_INLINE size_t partitionCookieSizeAdjustSubtract(size_t size)
 {
-#if ENABLE(ASSERT)
+#if DEBUG
     // Remove space for cookies.
-    ASSERT(size >= 2 * kCookieSize);
+    MOZ_ASSERT(size >= 2 * kCookieSize);
     size -= 2 * kCookieSize;
 #endif
     return size;
 }
 
-ALWAYS_INLINE void* partitionCookieFreePointerAdjust(void* ptr)
+MOZ_ALWAYS_INLINE void* partitionCookieFreePointerAdjust(void* ptr)
 {
-#if ENABLE(ASSERT)
+#if DEBUG
     // The value given to the application is actually just after the cookie.
     ptr = static_cast<char*>(ptr) - kCookieSize;
 #endif
     return ptr;
 }
 
-ALWAYS_INLINE void partitionCookieWriteValue(void* ptr)
+MOZ_ALWAYS_INLINE void partitionCookieWriteValue(void* ptr)
 {
-#if ENABLE(ASSERT)
+#if DEBUG
     uint32_t* cookiePtr = reinterpret_cast<uint32_t*>(ptr);
     for (size_t i = 0; i < kCookieSize / sizeof(kCookieValue); ++i, ++cookiePtr)
         *cookiePtr = kCookieValue;
 #endif
 }
 
-ALWAYS_INLINE void partitionCookieCheckValue(void* ptr)
+MOZ_ALWAYS_INLINE void partitionCookieCheckValue(void* ptr)
 {
-#if ENABLE(ASSERT)
+#if DEBUG
     uint32_t* cookiePtr = reinterpret_cast<uint32_t*>(ptr);
     for (size_t i = 0; i < kCookieSize / sizeof(kCookieValue); ++i, ++cookiePtr)
-        ASSERT(*cookiePtr == kCookieValue);
+        MOZ_ASSERT(*cookiePtr == kCookieValue);
 #endif
 }
 
-ALWAYS_INLINE char* partitionSuperPageToMetadataArea(char* ptr)
+MOZ_ALWAYS_INLINE char* partitionSuperPageToMetadataArea(char* ptr)
 {
     uintptr_t pointerAsUint = reinterpret_cast<uintptr_t>(ptr);
-    ASSERT(!(pointerAsUint & kSuperPageOffsetMask));
+    MOZ_ASSERT(!(pointerAsUint & kSuperPageOffsetMask));
     // The metadata area is exactly one system page (the guard page) into the
     // super page.
     return reinterpret_cast<char*>(pointerAsUint + kSystemPageSize);
 }
 
-ALWAYS_INLINE PartitionPage* partitionPointerToPageNoAlignmentCheck(void* ptr)
+MOZ_ALWAYS_INLINE PartitionPage* partitionPointerToPageNoAlignmentCheck(void* ptr)
 {
     uintptr_t pointerAsUint = reinterpret_cast<uintptr_t>(ptr);
     char* superPagePtr = reinterpret_cast<char*>(pointerAsUint & kSuperPageBaseMask);
     uintptr_t partitionPageIndex = (pointerAsUint & kSuperPageOffsetMask) >> kPartitionPageShift;
     // Index 0 is invalid because it is the metadata area and the last index is invalid because it is a guard page.
-    ASSERT(partitionPageIndex);
-    ASSERT(partitionPageIndex < kNumPartitionPagesPerSuperPage - 1);
+    MOZ_ASSERT(partitionPageIndex);
+    MOZ_ASSERT(partitionPageIndex < kNumPartitionPagesPerSuperPage - 1);
     PartitionPage* page = reinterpret_cast<PartitionPage*>(partitionSuperPageToMetadataArea(superPagePtr) + (partitionPageIndex << kPageMetadataShift));
     // Many partition pages can share the same page object. Adjust for that.
     size_t delta = page->pageOffset << kPageMetadataShift;
@@ -402,58 +404,58 @@ ALWAYS_INLINE PartitionPage* partitionPointerToPageNoAlignmentCheck(void* ptr)
     return page;
 }
 
-ALWAYS_INLINE void* partitionPageToPointer(PartitionPage* page)
+MOZ_ALWAYS_INLINE void* partitionPageToPointer(PartitionPage* page)
 {
     uintptr_t pointerAsUint = reinterpret_cast<uintptr_t>(page);
     uintptr_t superPageOffset = (pointerAsUint & kSuperPageOffsetMask);
-    ASSERT(superPageOffset > kSystemPageSize);
-    ASSERT(superPageOffset < kSystemPageSize + (kNumPartitionPagesPerSuperPage * kPageMetadataSize));
+    MOZ_ASSERT(superPageOffset > kSystemPageSize);
+    MOZ_ASSERT(superPageOffset < kSystemPageSize + (kNumPartitionPagesPerSuperPage * kPageMetadataSize));
     uintptr_t partitionPageIndex = (superPageOffset - kSystemPageSize) >> kPageMetadataShift;
     // Index 0 is invalid because it is the metadata area and the last index is invalid because it is a guard page.
-    ASSERT(partitionPageIndex);
-    ASSERT(partitionPageIndex < kNumPartitionPagesPerSuperPage - 1);
+    MOZ_ASSERT(partitionPageIndex);
+    MOZ_ASSERT(partitionPageIndex < kNumPartitionPagesPerSuperPage - 1);
     uintptr_t superPageBase = (pointerAsUint & kSuperPageBaseMask);
     void* ret = reinterpret_cast<void*>(superPageBase + (partitionPageIndex << kPartitionPageShift));
     return ret;
 }
 
-ALWAYS_INLINE PartitionPage* partitionPointerToPage(void* ptr)
+MOZ_ALWAYS_INLINE PartitionPage* partitionPointerToPage(void* ptr)
 {
     PartitionPage* page = partitionPointerToPageNoAlignmentCheck(ptr);
     // Checks that the pointer is a multiple of bucket size.
-    ASSERT(!((reinterpret_cast<uintptr_t>(ptr) - reinterpret_cast<uintptr_t>(partitionPageToPointer(page))) % page->bucket->slotSize));
+    MOZ_ASSERT(!((reinterpret_cast<uintptr_t>(ptr) - reinterpret_cast<uintptr_t>(partitionPageToPointer(page))) % page->bucket->slotSize));
     return page;
 }
 
-ALWAYS_INLINE PartitionRootBase* partitionPageToRoot(PartitionPage* page)
+MOZ_ALWAYS_INLINE PartitionRootBase* partitionPageToRoot(PartitionPage* page)
 {
     PartitionSuperPageExtentEntry* extentEntry = reinterpret_cast<PartitionSuperPageExtentEntry*>(reinterpret_cast<uintptr_t>(page) & kSystemPageBaseMask);
     return extentEntry->root;
 }
 
-ALWAYS_INLINE bool partitionPointerIsValid(void* ptr)
+MOZ_ALWAYS_INLINE bool partitionPointerIsValid(void* ptr)
 {
     PartitionPage* page = partitionPointerToPage(ptr);
     PartitionRootBase* root = partitionPageToRoot(page);
     return root->invertedSelf == ~reinterpret_cast<uintptr_t>(root);
 }
 
-ALWAYS_INLINE void* partitionBucketAlloc(PartitionRootBase* root, int flags, size_t size, PartitionBucket* bucket)
+MOZ_ALWAYS_INLINE void* partitionBucketAlloc(PartitionRootBase* root, int flags, size_t size, PartitionBucket* bucket)
 {
     PartitionPage* page = bucket->activePagesHead;
-    ASSERT(page->numAllocatedSlots >= 0);
+    MOZ_ASSERT(page->numAllocatedSlots >= 0);
     void* ret = page->freelistHead;
-    if (LIKELY(ret != 0)) {
+    if (MOZ_LIKELY(ret != 0)) {
         // If these asserts fire, you probably corrupted memory.
-        ASSERT(partitionPointerIsValid(ret));
+        MOZ_ASSERT(partitionPointerIsValid(ret));
         PartitionFreelistEntry* newHead = partitionFreelistMask(static_cast<PartitionFreelistEntry*>(ret)->next);
         page->freelistHead = newHead;
-        ASSERT(!ret || partitionPointerIsValid(ret));
+        MOZ_ASSERT(!ret || partitionPointerIsValid(ret));
         page->numAllocatedSlots++;
     } else {
         ret = partitionAllocSlowPath(root, flags, size, bucket);
     }
-#if ENABLE(ASSERT)
+#if DEBUG
     if (!ret)
         return 0;
     // Fill the uninitialized pattern. and write the cookies.
@@ -468,58 +470,69 @@ ALWAYS_INLINE void* partitionBucketAlloc(PartitionRootBase* root, int flags, siz
     return ret;
 }
 
-ALWAYS_INLINE void* partitionAlloc(PartitionRoot* root, size_t size)
+MOZ_ALWAYS_INLINE void* partitionAlloc(PartitionRoot* root, size_t size)
 {
 #if defined(MEMORY_TOOL_REPLACES_ALLOCATOR)
     void* result = malloc(size);
-    RELEASE_ASSERT(result);
+    MOZ_RELEASE_ASSERT(result);
     return result;
 #else
     size = partitionCookieSizeAdjustAdd(size);
-    ASSERT(root->initialized);
+    MOZ_ASSERT(root->initialized);
     size_t index = size >> kBucketShift;
-    ASSERT(index < root->numBuckets);
-    ASSERT(size == index << kBucketShift);
+    MOZ_ASSERT(index < root->numBuckets);
+    MOZ_ASSERT(size == index << kBucketShift);
     PartitionBucket* bucket = &root->buckets()[index];
     return partitionBucketAlloc(root, 0, size, bucket);
 #endif // defined(MEMORY_TOOL_REPLACES_ALLOCATOR)
 }
 
-ALWAYS_INLINE void partitionFreeWithPage(void* ptr, PartitionPage* page)
+MOZ_ALWAYS_INLINE void partitionFreeWithPage(void* ptr, PartitionPage* page)
 {
     // If these asserts fire, you probably corrupted memory.
-#if ENABLE(ASSERT)
+#if DEBUG
     size_t bucketSize = page->bucket->slotSize;
     partitionCookieCheckValue(ptr);
     partitionCookieCheckValue(reinterpret_cast<char*>(ptr) + bucketSize - kCookieSize);
     memset(ptr, kFreedByte, bucketSize);
 #endif
-    ASSERT(page->numAllocatedSlots);
+    MOZ_ASSERT(page->numAllocatedSlots);
     PartitionFreelistEntry* freelistHead = page->freelistHead;
-    ASSERT(!freelistHead || partitionPointerIsValid(freelistHead));
-    RELEASE_ASSERT(ptr != freelistHead); // Catches an immediate double free.
-    ASSERT(!freelistHead || ptr != partitionFreelistMask(freelistHead->next)); // Look for double free one level deeper in debug.
+    MOZ_ASSERT(!freelistHead || partitionPointerIsValid(freelistHead));
+    MOZ_RELEASE_ASSERT(ptr != freelistHead); // Catches an immediate double free.
+    MOZ_ASSERT(!freelistHead || ptr != partitionFreelistMask(freelistHead->next)); // Look for double free one level deeper in debug.
     PartitionFreelistEntry* entry = static_cast<PartitionFreelistEntry*>(ptr);
     entry->next = partitionFreelistMask(freelistHead);
     page->freelistHead = entry;
     --page->numAllocatedSlots;
-    if (UNLIKELY(page->numAllocatedSlots <= 0))
+    if (MOZ_UNLIKELY(page->numAllocatedSlots <= 0))
         partitionFreeSlowPath(page);
 }
 
-ALWAYS_INLINE void partitionFree(void* ptr)
+MOZ_ALWAYS_INLINE void partitionFree(void* ptr)
 {
 #if defined(MEMORY_TOOL_REPLACES_ALLOCATOR)
     free(ptr);
 #else
     ptr = partitionCookieFreePointerAdjust(ptr);
-    ASSERT(partitionPointerIsValid(ptr));
+    MOZ_ASSERT(partitionPointerIsValid(ptr));
     PartitionPage* page = partitionPointerToPage(ptr);
     partitionFreeWithPage(ptr, page);
 #endif
 }
 
-ALWAYS_INLINE PartitionBucket* partitionGenericSizeToBucket(PartitionRootGeneric* root, size_t size)
+MOZ_ALWAYS_INLINE uint32_t
+countLeadingZerosNonZeroSizet(size_t x) {
+    if (sizeof(size_t) == 4) return mozilla::CountLeadingZeroes32(x);
+    else return mozilla::CountLeadingZeroes64(x);
+}
+
+MOZ_ALWAYS_INLINE uint32_t
+countLeadingZerosSizet(size_t x) {
+    return MOZ_LIKELY(x) ? countLeadingZerosNonZeroSizet(x) : sizeof(size_t) * CHAR_BIT;
+}
+
+MOZ_ALWAYS_INLINE PartitionBucket* partitionGenericSizeToBucket(PartitionRootGeneric* root, size_t size)
 {
     size_t order = kBitsPerSizet - countLeadingZerosSizet(size);
     // The order index is simply the next few bits after the most significant bit.
@@ -527,19 +540,19 @@ ALWAYS_INLINE PartitionBucket* partitionGenericSizeToBucket(PartitionRootGeneric
     // And if the remaining bits are non-zero we must bump the bucket up.
     size_t subOrderIndex = size & root->orderSubIndexMasks[order];
     PartitionBucket* bucket = root->bucketLookups[(order << kGenericNumBucketsPerOrderBits) + orderIndex + !!subOrderIndex];
-    ASSERT(!bucket->slotSize || bucket->slotSize >= size);
-    ASSERT(!(bucket->slotSize % kGenericSmallestBucket));
+    MOZ_ASSERT(!bucket->slotSize || bucket->slotSize >= size);
+    MOZ_ASSERT(!(bucket->slotSize % kGenericSmallestBucket));
     return bucket;
 }
 
-ALWAYS_INLINE void* partitionAllocGenericFlags(PartitionRootGeneric* root, int flags, size_t size)
+MOZ_ALWAYS_INLINE void* partitionAllocGenericFlags(PartitionRootGeneric* root, int flags, size_t size)
 {
 #if defined(MEMORY_TOOL_REPLACES_ALLOCATOR)
     void* result = malloc(size);
-    RELEASE_ASSERT(result);
+    MOZ_RELEASE_ASSERT(result);
     return result;
 #else
-    ASSERT(root->initialized);
+    MOZ_ASSERT(root->initialized);
     size = partitionCookieSizeAdjustAdd(size);
     PartitionBucket* bucket = partitionGenericSizeToBucket(root, size);
     spinLockLock(&root->lock);
@@ -549,23 +562,23 @@ ALWAYS_INLINE void* partitionAllocGenericFlags(PartitionRootGeneric* root, int f
 #endif
 }
 
-ALWAYS_INLINE void* partitionAllocGeneric(PartitionRootGeneric* root, size_t size)
+MOZ_ALWAYS_INLINE void* partitionAllocGeneric(PartitionRootGeneric* root, size_t size)
 {
     return partitionAllocGenericFlags(root, 0, size);
 }
 
-ALWAYS_INLINE void partitionFreeGeneric(PartitionRootGeneric* root, void* ptr)
+MOZ_ALWAYS_INLINE void partitionFreeGeneric(PartitionRootGeneric* root, void* ptr)
 {
 #if defined(MEMORY_TOOL_REPLACES_ALLOCATOR)
     free(ptr);
 #else
-    ASSERT(root->initialized);
+    MOZ_ASSERT(root->initialized);
 
-    if (UNLIKELY(!ptr))
+    if (MOZ_UNLIKELY(!ptr))
         return;
 
     ptr = partitionCookieFreePointerAdjust(ptr);
-    ASSERT(partitionPointerIsValid(ptr));
+    MOZ_ASSERT(partitionPointerIsValid(ptr));
     PartitionPage* page = partitionPointerToPage(ptr);
     spinLockLock(&root->lock);
     partitionFreeWithPage(ptr, page);
@@ -573,41 +586,41 @@ ALWAYS_INLINE void partitionFreeGeneric(PartitionRootGeneric* root, void* ptr)
 #endif
 }
 
-ALWAYS_INLINE bool partitionBucketIsDirectMapped(PartitionBucket* bucket)
+MOZ_ALWAYS_INLINE bool partitionBucketIsDirectMapped(PartitionBucket* bucket)
 {
     return !bucket->numSystemPagesPerSlotSpan;
 }
 
-ALWAYS_INLINE size_t partitionDirectMapSize(size_t size)
+MOZ_ALWAYS_INLINE size_t partitionDirectMapSize(size_t size)
 {
     // Caller must check that the size is not above the kGenericMaxDirectMapped
     // limit before calling. This also guards against integer overflow in the
     // calculation here.
-    ASSERT(size <= kGenericMaxDirectMapped);
+    MOZ_ASSERT(size <= kGenericMaxDirectMapped);
     return (size + kSystemPageOffsetMask) & kSystemPageBaseMask;
 }
 
-ALWAYS_INLINE size_t partitionAllocActualSize(PartitionRootGeneric* root, size_t size)
+MOZ_ALWAYS_INLINE size_t partitionAllocActualSize(PartitionRootGeneric* root, size_t size)
 {
 #if defined(MEMORY_TOOL_REPLACES_ALLOCATOR)
     return size;
 #else
-    ASSERT(root->initialized);
+    MOZ_ASSERT(root->initialized);
     size = partitionCookieSizeAdjustAdd(size);
     PartitionBucket* bucket = partitionGenericSizeToBucket(root, size);
-    if (LIKELY(!partitionBucketIsDirectMapped(bucket))) {
+    if (MOZ_LIKELY(!partitionBucketIsDirectMapped(bucket))) {
         size = bucket->slotSize;
     } else if (size > kGenericMaxDirectMapped) {
         // Too large to allocate => return the size unchanged.
     } else {
-        ASSERT(bucket == &PartitionRootBase::gPagedBucket);
+        MOZ_ASSERT(bucket == &PartitionRootBase::gPagedBucket);
         size = partitionDirectMapSize(size);
     }
     return partitionCookieSizeAdjustSubtract(size);
 #endif
 }
 
-ALWAYS_INLINE bool partitionAllocSupportsGetSize()
+MOZ_ALWAYS_INLINE bool partitionAllocSupportsGetSize()
 {
 #if defined(MEMORY_TOOL_REPLACES_ALLOCATOR)
     return false;
@@ -616,13 +629,13 @@ ALWAYS_INLINE bool partitionAllocSupportsGetSize()
 #endif
 }
 
-ALWAYS_INLINE size_t partitionAllocGetSize(void* ptr)
+MOZ_ALWAYS_INLINE size_t partitionAllocGetSize(void* ptr)
 {
     // No need to lock here. Only 'ptr' being freed by another thread could
     // cause trouble, and the caller is responsible for that not happening.
-    ASSERT(partitionAllocSupportsGetSize());
+    MOZ_ASSERT(partitionAllocSupportsGetSize());
     ptr = partitionCookieFreePointerAdjust(ptr);
-    ASSERT(partitionPointerIsValid(ptr));
+    MOZ_ASSERT(partitionPointerIsValid(ptr));
     PartitionPage* page = partitionPointerToPage(ptr);
     size_t size = page->bucket->slotSize;
     return partitionCookieSizeAdjustSubtract(size);
@@ -638,7 +651,7 @@ public:
     static const size_t kNumBuckets = N / kAllocationGranularity;
     void init() { partitionAllocInit(&m_partitionRoot, kNumBuckets, kMaxAllocation); }
     bool shutdown() { return partitionAllocShutdown(&m_partitionRoot); }
-    ALWAYS_INLINE PartitionRoot* root() { return &m_partitionRoot; }
+    MOZ_ALWAYS_INLINE PartitionRoot* root() { return &m_partitionRoot; }
 private:
     PartitionRoot m_partitionRoot;
     PartitionBucket m_actualBuckets[kNumBuckets];
@@ -648,7 +661,7 @@ class PartitionAllocatorGeneric {
 public:
     void init() { partitionAllocGenericInit(&m_partitionRoot); }
     bool shutdown() { return partitionAllocGenericShutdown(&m_partitionRoot); }
-    ALWAYS_INLINE PartitionRootGeneric* root() { return &m_partitionRoot; }
+    MOZ_ALWAYS_INLINE PartitionRootGeneric* root() { return &m_partitionRoot; }
 private:
     PartitionRootGeneric m_partitionRoot;
 };

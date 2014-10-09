@@ -28,15 +28,17 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#include "config.h"
+//#include "config.h"
 #include "wtf/PageAllocator.h"
 
-#include "wtf/AddressSpaceRandomization.h"
-#include "wtf/Assertions.h"
+//#include "wtf/AddressSpaceRandomization.h"
+//#include "wtf/Assertions.h"
+
+#include "mozilla/Assertions.h"
 
 #include <limits.h>
 
-#if OS(POSIX)
+#if !defined( MOZ_MEMORY_WINDOWS )
 
 #include <sys/mman.h>
 
@@ -48,17 +50,17 @@
 #define MAP_ANONYMOUS MAP_ANON
 #endif
 
-#elif OS(WIN)
+#elif defined( MOZ_MEMORY_WINDOWS )
 
 #include <windows.h>
 
 #else
 #error Unknown OS
-#endif // OS(POSIX)
+#endif // !defined( MOZ_MEMORY_WINDOWS )
 
 namespace WTF {
 
-#if OS(WIN)
+#if defined( MOZ_MEMORY_WINDOWS )
 
 static bool shouldUseAddressHint()
 {
@@ -79,17 +81,17 @@ static bool shouldUseAddressHint()
 #endif // CPU(32BIT)
 }
 
-#endif // OS(WIN)
+#endif // defined( MOZ_MEMORY_WINDOWS )
 
 // This simple internal function wraps the OS-specific page allocation call so
 // that it behaves consistently: the address is a hint and if it cannot be used,
 // the allocation will be placed elsewhere.
 static void* systemAllocPages(void* addr, size_t len)
 {
-    ASSERT(!(len & kPageAllocationGranularityOffsetMask));
-    ASSERT(!(reinterpret_cast<uintptr_t>(addr) & kPageAllocationGranularityOffsetMask));
+    MOZ_ASSERT(!(len & kPageAllocationGranularityOffsetMask));
+    MOZ_ASSERT(!(reinterpret_cast<uintptr_t>(addr) & kPageAllocationGranularityOffsetMask));
     void* ret = 0;
-#if OS(WIN)
+#if defined( MOZ_MEMORY_WINDOWS )
     if (shouldUseAddressHint())
         ret = VirtualAlloc(addr, len, MEM_RESERVE | MEM_COMMIT, PAGE_READWRITE);
     if (!ret)
@@ -104,22 +106,22 @@ static void* systemAllocPages(void* addr, size_t len)
 
 static bool trimMapping(void* baseAddr, size_t baseLen, void* trimAddr, size_t trimLen)
 {
-#if OS(WIN)
+#if defined( MOZ_MEMORY_WINDOWS )
     return false;
 #else
     char* basePtr = static_cast<char*>(baseAddr);
     char* trimPtr = static_cast<char*>(trimAddr);
-    ASSERT(trimPtr >= basePtr);
-    ASSERT(trimPtr + trimLen <= basePtr + baseLen);
+    MOZ_ASSERT(trimPtr >= basePtr);
+    MOZ_ASSERT(trimPtr + trimLen <= basePtr + baseLen);
     size_t preLen = trimPtr - basePtr;
     if (preLen) {
         int ret = munmap(basePtr, preLen);
-        RELEASE_ASSERT(!ret);
+        MOZ_RELEASE_ASSERT(!ret);
     }
     size_t postLen = (basePtr + baseLen) - (trimPtr + trimLen);
     if (postLen) {
         int ret = munmap(trimPtr + trimLen, postLen);
-        RELEASE_ASSERT(!ret);
+        MOZ_RELEASE_ASSERT(!ret);
     }
     return true;
 #endif
@@ -127,14 +129,14 @@ static bool trimMapping(void* baseAddr, size_t baseLen, void* trimAddr, size_t t
 
 void* allocPages(void* addr, size_t len, size_t align)
 {
-    ASSERT(len >= kPageAllocationGranularity);
-    ASSERT(!(len & kPageAllocationGranularityOffsetMask));
-    ASSERT(align >= kPageAllocationGranularity);
-    ASSERT(!(align & kPageAllocationGranularityOffsetMask));
-    ASSERT(!(reinterpret_cast<uintptr_t>(addr) & kPageAllocationGranularityOffsetMask));
+    MOZ_ASSERT(len >= kPageAllocationGranularity);
+    MOZ_ASSERT(!(len & kPageAllocationGranularityOffsetMask));
+    MOZ_ASSERT(align >= kPageAllocationGranularity);
+    MOZ_ASSERT(!(align & kPageAllocationGranularityOffsetMask));
+    MOZ_ASSERT(!(reinterpret_cast<uintptr_t>(addr) & kPageAllocationGranularityOffsetMask));
     size_t alignOffsetMask = align - 1;
     size_t alignBaseMask = ~alignOffsetMask;
-    ASSERT(!(reinterpret_cast<uintptr_t>(addr) & alignOffsetMask));
+    MOZ_ASSERT(!(reinterpret_cast<uintptr_t>(addr) & alignOffsetMask));
     // If the client passed null as the address, choose a good one.
     if (!addr) {
         addr = getRandomPageBase();
@@ -153,7 +155,7 @@ void* allocPages(void* addr, size_t len, size_t align)
     freePages(ret, len);
 
     size_t tryLen = len + (align - kPageAllocationGranularity);
-    RELEASE_ASSERT(tryLen > len);
+    MOZ_RELEASE_ASSERT(tryLen > len);
 
     // We loop to cater for the unlikely case where another thread maps on top
     // of the aligned location we choose.
@@ -183,53 +185,53 @@ void* allocPages(void* addr, size_t len, size_t align)
         addr = getRandomPageBase();
         addr = reinterpret_cast<void*>(reinterpret_cast<uintptr_t>(addr) & alignBaseMask);
     }
-    IMMEDIATE_CRASH();
+    MOZ_CRASH();
     return 0;
 }
 
 void freePages(void* addr, size_t len)
 {
-    ASSERT(!(reinterpret_cast<uintptr_t>(addr) & kPageAllocationGranularityOffsetMask));
-    ASSERT(!(len & kPageAllocationGranularityOffsetMask));
-#if OS(POSIX)
+    MOZ_ASSERT(!(reinterpret_cast<uintptr_t>(addr) & kPageAllocationGranularityOffsetMask));
+    MOZ_ASSERT(!(len & kPageAllocationGranularityOffsetMask));
+#if !defined( MOZ_MEMORY_WINDOWS )
     int ret = munmap(addr, len);
-    RELEASE_ASSERT(!ret);
+    MOZ_RELEASE_ASSERT(!ret);
 #else
     BOOL ret = VirtualFree(addr, 0, MEM_RELEASE);
-    RELEASE_ASSERT(ret);
+    MOZ_RELEASE_ASSERT(ret);
 #endif
 }
 
 void setSystemPagesInaccessible(void* addr, size_t len)
 {
-    ASSERT(!(len & kSystemPageOffsetMask));
-#if OS(POSIX)
+    MOZ_ASSERT(!(len & kSystemPageOffsetMask));
+#if !defined( MOZ_MEMORY_WINDOWS )
     int ret = mprotect(addr, len, PROT_NONE);
-    RELEASE_ASSERT(!ret);
+    MOZ_RELEASE_ASSERT(!ret);
 #else
     BOOL ret = VirtualFree(addr, len, MEM_DECOMMIT);
-    RELEASE_ASSERT(ret);
+    MOZ_RELEASE_ASSERT(ret);
 #endif
 }
 
 void setSystemPagesAccessible(void* addr, size_t len)
 {
-    ASSERT(!(len & kSystemPageOffsetMask));
-#if OS(POSIX)
+    MOZ_ASSERT(!(len & kSystemPageOffsetMask));
+#if !defined( MOZ_MEMORY_WINDOWS )
     int ret = mprotect(addr, len, PROT_READ | PROT_WRITE);
-    RELEASE_ASSERT(!ret);
+    MOZ_RELEASE_ASSERT(!ret);
 #else
     void* ret = VirtualAlloc(addr, len, MEM_COMMIT, PAGE_READWRITE);
-    RELEASE_ASSERT(ret);
+    MOZ_RELEASE_ASSERT(ret);
 #endif
 }
 
 void decommitSystemPages(void* addr, size_t len)
 {
-    ASSERT(!(len & kSystemPageOffsetMask));
-#if OS(POSIX)
+    MOZ_ASSERT(!(len & kSystemPageOffsetMask));
+#if !defined( MOZ_MEMORY_WINDOWS )
     int ret = madvise(addr, len, MADV_FREE);
-    RELEASE_ASSERT(!ret);
+    MOZ_RELEASE_ASSERT(!ret);
 #else
     setSystemPagesInaccessible(addr, len);
 #endif
@@ -237,8 +239,8 @@ void decommitSystemPages(void* addr, size_t len)
 
 void recommitSystemPages(void* addr, size_t len)
 {
-    ASSERT(!(len & kSystemPageOffsetMask));
-#if OS(POSIX)
+    MOZ_ASSERT(!(len & kSystemPageOffsetMask));
+#if !defined( MOZ_MEMORY_WINDOWS )
     (void) addr;
 #else
     setSystemPagesAccessible(addr, len);

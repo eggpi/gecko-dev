@@ -46,9 +46,22 @@ static const size_t kPageAllocationGranularity = 1 << kPageAllocationGranularity
 static const size_t kPageAllocationGranularityOffsetMask = kPageAllocationGranularity - 1;
 static const size_t kPageAllocationGranularityBaseMask = ~kPageAllocationGranularityOffsetMask;
 
-// All Blink-supported systems have 4096 sized system pages and can handle
-// permissions and commit / decommit at this granularity.
-static const size_t kSystemPageSize = 4096;
+/*
+ * VM page size. It must divide the runtime CPU page size or the code
+ * will abort.
+ * Copied from mozjemalloc, which in turn copied from js/public/HeapAPI.h
+ */
+#if (defined(SOLARIS) || defined(__FreeBSD__)) && \
+    (defined(__sparc) || defined(__sparcv9) || defined(__ia64))
+#define PARTITIONALLOC_PAGESIZE_2POW			((size_t) 13)
+#elif defined(__powerpc64__) || defined(__aarch64__)
+#define PARTITIONALLOC_PAGESIZE_2POW			((size_t) 16)
+#else
+#define PARTITIONALLOC_PAGESIZE_2POW			((size_t) 12)
+#endif
+#define PARTITIONALLOC_PAGESIZE			((size_t) 1 << PARTITIONALLOC_PAGESIZE_2POW)
+
+static const size_t kSystemPageSize = PARTITIONALLOC_PAGESIZE;
 static const size_t kSystemPageOffsetMask = kSystemPageSize - 1;
 static const size_t kSystemPageBaseMask = ~kSystemPageOffsetMask;
 

@@ -64,6 +64,7 @@ namespace WTF {
 
 static bool shouldUseAddressHint()
 {
+/* FIXME(ggp) do we want to import AddressSpaceRandomization?
 #if CPU(32BIT)
     // When running 32-bit processes under 32-bit Windows, the userspace is
     // limited to 2 GB, and we risk fragmenting it badly if we allow further
@@ -79,6 +80,8 @@ static bool shouldUseAddressHint()
 #else // CPU(32BIT)
     return true;
 #endif // CPU(32BIT)
+*/
+    return true;
 }
 
 #endif // defined( MOZ_MEMORY_WINDOWS )
@@ -137,11 +140,15 @@ void* allocPages(void* addr, size_t len, size_t align)
     size_t alignOffsetMask = align - 1;
     size_t alignBaseMask = ~alignOffsetMask;
     MOZ_ASSERT(!(reinterpret_cast<uintptr_t>(addr) & alignOffsetMask));
+
+    // FIXME do we want to import AddressSpaceRandomization too?
+#if 0
     // If the client passed null as the address, choose a good one.
     if (!addr) {
         addr = getRandomPageBase();
         addr = reinterpret_cast<void*>(reinterpret_cast<uintptr_t>(addr) & alignBaseMask);
     }
+#endif
 
     // The common case, which is also the least work we can do, is that the
     // address and length are suitable. Just try it.
@@ -182,7 +189,8 @@ void* allocPages(void* addr, size_t len, size_t align)
 
         // Unlikely race / collision. Do the simple thing and just start again.
         freePages(ret, len);
-        addr = getRandomPageBase();
+        // FIXME do we want to import AddressSpaceRandomization?
+        addr = 0; // getRandomPageBase();
         addr = reinterpret_cast<void*>(reinterpret_cast<uintptr_t>(addr) & alignBaseMask);
     }
     MOZ_CRASH();

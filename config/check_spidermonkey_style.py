@@ -52,7 +52,8 @@ ignored_js_src_dirs = [
    'js/src/devtools/',          # auxiliary stuff
    'js/src/editline/',          # imported code
    'js/src/gdb/',               # auxiliary stuff
-   'js/src/vtune/'              # imported code
+   'js/src/vtune/',             # imported code
+   'js/src/partitionalloc'      # imported code
 ]
 
 # We ignore #includes of these files, because they don't follow the usual rules.

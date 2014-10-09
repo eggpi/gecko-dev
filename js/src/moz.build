@@ -279,6 +279,9 @@ UNIFIED_SOURCES += [
     'vm/Xdr.cpp'
 ]
 
+if CONFIG['MOZ_MEMORY']:
+    DIRS += ['partitionalloc']
+
 # jsarray.cpp and jsatom.cpp cannot be built in unified mode because
 # xpcshell is broken during packaging when compiled with gcc-4.8.2
 # builtin/RegExp.cpp cannot be built in unified mode because it is built
@@ -461,6 +464,11 @@ USE_LIBS += [
     'nspr',
     'zlib',
 ]
+
+if CONFIG['MOZ_MEMORY']:
+    USE_LIBS += [
+        'partitionalloc'
+    ]
 
 if CONFIG['MOZ_ETW']:
     GENERATED_FILES = [

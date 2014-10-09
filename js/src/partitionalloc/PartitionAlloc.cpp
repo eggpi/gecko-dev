@@ -55,7 +55,7 @@ static_assert(WTF::kGenericMaxBucketed == 983040, "generic_max_bucketed");
 
 namespace WTF {
 
-int PartitionRootBase::gInitializedLock = 0;
+MallocMutex PartitionRootBase::gInitializedLock;
 bool PartitionRootBase::gInitialized = false;
 PartitionPage PartitionRootBase::gSeedPage;
 PartitionBucket PartitionRootBase::gPagedBucket;
@@ -102,14 +102,14 @@ static void parititonAllocBaseInit(PartitionRootBase* root)
 {
     MOZ_ASSERT(!root->initialized);
 
-    spinLockLock(&PartitionRootBase::gInitializedLock);
+    PartitionRootBase::gInitializedLock.Lock();
     if (!PartitionRootBase::gInitialized) {
         PartitionRootBase::gInitialized = true;
         // We mark the seed page as free to make sure it is skipped by our
         // logic to find a new active page.
         PartitionRootBase::gPagedBucket.activePagesHead = &PartitionRootGeneric::gSeedPage;
     }
-    spinLockUnlock(&PartitionRootBase::gInitializedLock);
+    PartitionRootBase::gInitializedLock.Unlock();
 
     root->initialized = true;
     root->totalSizeOfCommittedPages = 0;
@@ -156,7 +156,7 @@ void partitionAllocGenericInit(PartitionRootGeneric* root)
 {
     parititonAllocBaseInit(root);
 
-    root->lock = 0;
+    //root->lock = 0;
 
     // Precalculate some shift and mask constants used in the hot path.
     // Example: malloc(41) == 101001 binary.

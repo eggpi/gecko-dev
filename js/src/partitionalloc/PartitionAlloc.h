@@ -115,6 +115,8 @@
 #include <string.h>
 #endif
 
+#include "wtf/mutex.h"
+
 namespace WTF {
 
 // Maximum size of a partition's mappings. 2046MB. Note that the total amount of
@@ -270,7 +272,7 @@ struct MOZ_EXPORT PartitionRootBase {
     size_t globalEmptyPageRingIndex;
     uintptr_t invertedSelf;
 
-    static int gInitializedLock;
+    static MallocMutex gInitializedLock;
     static bool gInitialized;
     static PartitionPage gSeedPage;
     static PartitionBucket gPagedBucket;
@@ -285,7 +287,7 @@ struct PartitionRoot : public PartitionRootBase {
 
 // Never instantiate a PartitionRootGeneric directly, instead use PartitionAllocatorGeneric.
 struct PartitionRootGeneric : public PartitionRootBase {
-    int lock;
+    MallocMutex lock;
     // Some pre-computed constants.
     size_t orderIndexShifts[kBitsPerSizet + 1];
     size_t orderSubIndexMasks[kBitsPerSizet + 1];
@@ -555,9 +557,9 @@ MOZ_ALWAYS_INLINE void* partitionAllocGenericFlags(PartitionRootGeneric* root, i
     MOZ_ASSERT(root->initialized);
     size = partitionCookieSizeAdjustAdd(size);
     PartitionBucket* bucket = partitionGenericSizeToBucket(root, size);
-    spinLockLock(&root->lock);
+    root->lock.Lock();
     void* ret = partitionBucketAlloc(root, flags, size, bucket);
-    spinLockUnlock(&root->lock);
+    root->lock.Unlock();
     return ret;
 #endif
 }
@@ -580,9 +582,9 @@ MOZ_ALWAYS_INLINE void partitionFreeGeneric(PartitionRootGeneric* root, void* pt
     ptr = partitionCookieFreePointerAdjust(ptr);
     MOZ_ASSERT(partitionPointerIsValid(ptr));
     PartitionPage* page = partitionPointerToPage(ptr);
-    spinLockLock(&root->lock);
+    root->lock.Lock();
     partitionFreeWithPage(ptr, page);
-    spinLockUnlock(&root->lock);
+    root->lock.Unlock();
 #endif
 }
 

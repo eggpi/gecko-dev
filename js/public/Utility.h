@@ -57,12 +57,6 @@ namespace js {}
 extern MOZ_NORETURN JS_PUBLIC_API(void)
 JS_Assert(const char *s, const char *file, int ln);
 
-/*
- * Custom allocator support for SpiderMonkey
- */
-#if defined JS_USE_CUSTOM_ALLOCATOR
-# include "jscustomallocator.h"
-#else
 # if defined(DEBUG) || defined(JS_OOM_BREAKPOINT)
 /*
  * In order to test OOM conditions, when the testing function
@@ -92,6 +86,25 @@ static MOZ_NEVER_INLINE void js_failedAllocBreakpoint() { asm(""); }
 #  define JS_OOM_POSSIBLY_FAIL() do {} while(0)
 # endif /* DEBUG || JS_OOM_BREAKPOINT */
 
+/*
+ * Custom allocator support for SpiderMonkey
+ */
+#ifdef MOZ_MEMORY
+// FIXME PartitionAlloc's hacked mutex depends on the MOZ_MEMORY_* macros, none
+// of which are defined when MOZ_MEMORY is not defined. Ideally we'd just use
+// NSPR's mutex implementation, but I couldn't get it to link correctly when
+// PartitionAlloc lived inside memory/, so let's not bother making that change
+// just for experimenting inside the js engine. In particular, MOZ_MEMORY won't
+// be defined on 32bit builds on OSX, which are the OS X 10.8 Opt builds on Try:
+// http://dxr.mozilla.org/mozilla-central/source/configure.in#1886
+# define JS_USE_CUSTOM_ALLOCATOR
+#else
+#pragma message "MOZ_MEMORY is not defined, will not use PartitionAlloc"
+#endif
+
+#if defined JS_USE_CUSTOM_ALLOCATOR
+# include "jscustomallocator.h"
+#else
 static inline void* js_malloc(size_t bytes)
 {
     JS_OOM_POSSIBLY_FAIL();

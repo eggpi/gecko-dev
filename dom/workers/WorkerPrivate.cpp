@@ -102,7 +102,23 @@ using namespace mozilla;
 using namespace mozilla::dom;
 USING_WORKERS_NAMESPACE
 
-MOZ_DEFINE_MALLOC_SIZE_OF(JsWorkerMallocSizeOf)
+/*
+static size_t
+JsWorkerMallocSizeOf(const void* aPtr) {
+  MOZ_REPORT(aPtr);
+  size_t ret = moz_malloc_size_of(aPtr);
+  MOZ_RELEASE_ASSERT(!aPtr || ret);
+  return ret;
+}
+*/
+
+static size_t
+JsPartitionedWorkerMallocSizeOf(const void* aPtr) {
+  MOZ_REPORT(aPtr);
+  size_t ret = partitionAllocGetSize(aPtr);
+  MOZ_RELEASE_ASSERT(!aPtr || ret);
+  return ret;
+}
 
 #ifdef DEBUG
 
@@ -1611,7 +1627,7 @@ class WorkerJSRuntimeStats : public JS::RuntimeStats
 
 public:
   explicit WorkerJSRuntimeStats(const nsACString& aRtPath)
-  : JS::RuntimeStats(JsWorkerMallocSizeOf), mRtPath(aRtPath)
+  : JS::RuntimeStats(JsPartitionedWorkerMallocSizeOf), mRtPath(aRtPath)
   { }
 
   ~WorkerJSRuntimeStats()

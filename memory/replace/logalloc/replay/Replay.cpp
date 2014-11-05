@@ -22,6 +22,8 @@ typedef int ssize_t;
 #include "mozilla/Assertions.h"
 #include "FdPrintf.h"
 
+#include <mach/mach.h>
+
 static void
 die(const char* message)
 {
@@ -452,6 +454,15 @@ public:
     Commit(aSlot);
   }
 
+  size_t get_rss(void) {
+    struct mach_task_basic_info info;
+    mach_msg_type_number_t info_count = MACH_TASK_BASIC_INFO_COUNT;
+    if (task_info(mach_task_self(), MACH_TASK_BASIC_INFO, (task_info_t) &info, &info_count) != KERN_SUCCESS) {
+        return 0;
+    }
+    return info.resident_size;
+  }
+
   void jemalloc_stats(Buffer& aArgs)
   {
     if (aArgs) {
@@ -459,11 +470,12 @@ public:
     }
     jemalloc_stats_t stats;
     ::jemalloc_stats_impl(&stats);
+    size_t rss = get_rss();
     FdPrintf(mStdErr,
              "#%zu mapped: %zu; allocated: %zu; waste: %zu; dirty: %zu; "
-             "bookkeep: %zu; binunused: %zu\n", mOps, stats.mapped,
+             "bookkeep: %zu; binunused: %zu\n; rss: %zu\n", mOps, stats.mapped,
              stats.allocated, stats.waste, stats.page_cache,
-             stats.bookkeeping, stats.bin_unused);
+             stats.bookkeeping, stats.bin_unused, rss);
     /* TODO: Add more data, like actual RSS as measured by OS, but compensated
      * for the replay internal data. */
   }

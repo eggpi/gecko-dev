@@ -1,0 +1,9 @@
+1 jemalloc_stats()
+1 malloc(32)=#1
+1 jemalloc_stats()
+1 malloc(32)=#2
+1 jemalloc_stats()
+1 malloc(32)=#3
+1 jemalloc_stats()
+1 malloc(32)=#4
+1 jemalloc_stats()

@@ -1,0 +1,2713 @@
+commit d10c711babc40007f08691f401a3545ea9e524f5
+Author: Guilherme Goncalves <guilherme.p.gonc@gmail.com>
+Date:   Wed Nov 5 15:28:16 2014 -0200
+
+    wat
+
+diff --git a/memory/build/mozjemalloc_compat.c b/memory/build/mozjemalloc_compat.c
+index dadabd6..130a400 100644
+--- a/memory/build/mozjemalloc_compat.c
++++ b/memory/build/mozjemalloc_compat.c
+@@ -23,7 +23,7 @@ je_(mallctlnametomib)(const char *name, size_t *mibp, size_t *miblenp);
+ MOZ_IMPORT_API int
+ je_(mallctlbymib)(const size_t *mib, size_t miblen, void *oldp, size_t *oldlenp, void *newp, size_t newlen);
+ MOZ_IMPORT_API int
+-je_(nallocm)(size_t *rsize, size_t size, int flags);
++je_(nallocx)(size_t size, int flags);
+ 
+ #else
+ #  include "jemalloc/jemalloc.h"
+@@ -62,15 +62,12 @@ je_(nallocm)(size_t *rsize, size_t size, int flags);
+ MOZ_MEMORY_API size_t
+ malloc_good_size_impl(size_t size)
+ {
+-  size_t ret;
+-  /* je_nallocm crashes when given a size of 0. As
++  /* je_nallocx crashes when given a size of 0. As
+    * malloc_usable_size(malloc(0)) and malloc_usable_size(malloc(1))
+    * return the same value, use a size of 1. */
+   if (size == 0)
+     size = 1;
+-  if (!je_(nallocm)(&ret, size, 0))
+-    return ret;
+-  return size;
++  return je_(nallocx)(size, 0);
+ }
+ 
+ static size_t
+diff --git a/memory/jemalloc/0001-Use-a-configure-test-to-detect-whether-to-use-a-cons.patch b/memory/jemalloc/0001-Use-a-configure-test-to-detect-whether-to-use-a-cons.patch
+deleted file mode 100644
+index cec109f..0000000
+--- a/memory/jemalloc/0001-Use-a-configure-test-to-detect-whether-to-use-a-cons.patch
++++ /dev/null
+@@ -1,340 +0,0 @@
+-diff --git a/configure b/configure
+---- a/configure
+-+++ b/configure
+-@@ -1905,83 +1905,16 @@ fi
+-   # interfere with the next link command; also delete a directory that is
+-   # left behind by Apple's compiler.  We do this before executing the actions.
+-   rm -rf conftest.dSYM conftest_ipa8_conftest.oo
+-   eval $as_lineno_stack; ${as_lineno_stack:+:} unset as_lineno
+-   as_fn_set_status $ac_retval
+- 
+- } # ac_fn_c_try_link
+- 
+--# ac_fn_c_check_func LINENO FUNC VAR
+--# ----------------------------------
+--# Tests whether FUNC exists, setting the cache variable VAR accordingly
+--ac_fn_c_check_func ()
+--{
+--  as_lineno=${as_lineno-"$1"} as_lineno_stack=as_lineno_stack=$as_lineno_stack
+--  { $as_echo "$as_me:${as_lineno-$LINENO}: checking for $2" >&5
+--$as_echo_n "checking for $2... " >&6; }
+--if eval \${$3+:} false; then :
+--  $as_echo_n "(cached) " >&6
+--else
+--  cat confdefs.h - <<_ACEOF >conftest.$ac_ext
+--/* end confdefs.h.  */
+--/* Define $2 to an innocuous variant, in case <limits.h> declares $2.
+--   For example, HP-UX 11i <limits.h> declares gettimeofday.  */
+--#define $2 innocuous_$2
+--
+--/* System header to define __stub macros and hopefully few prototypes,
+--    which can conflict with char $2 (); below.
+--    Prefer <limits.h> to <assert.h> if __STDC__ is defined, since
+--    <limits.h> exists even on freestanding compilers.  */
+--
+--#ifdef __STDC__
+--# include <limits.h>
+--#else
+--# include <assert.h>
+--#endif
+--
+--#undef $2
+--
+--/* Override any GCC internal prototype to avoid an error.
+--   Use char because int might match the return type of a GCC
+--   builtin and then its argument prototype would still apply.  */
+--#ifdef __cplusplus
+--extern "C"
+--#endif
+--char $2 ();
+--/* The GNU C library defines this for functions which it implements
+--    to always fail with ENOSYS.  Some functions are actually named
+--    something starting with __ and the normal name is an alias.  */
+--#if defined __stub_$2 || defined __stub___$2
+--choke me
+--#endif
+--
+--int
+--main ()
+--{
+--return $2 ();
+--  ;
+--  return 0;
+--}
+--_ACEOF
+--if ac_fn_c_try_link "$LINENO"; then :
+--  eval "$3=yes"
+--else
+--  eval "$3=no"
+--fi
+--rm -f core conftest.err conftest.$ac_objext \
+--    conftest$ac_exeext conftest.$ac_ext
+--fi
+--eval ac_res=\$$3
+--	       { $as_echo "$as_me:${as_lineno-$LINENO}: result: $ac_res" >&5
+--$as_echo "$ac_res" >&6; }
+--  eval $as_lineno_stack; ${as_lineno_stack:+:} unset as_lineno
+--
+--} # ac_fn_c_check_func
+--
+- # ac_fn_c_check_header_mongrel LINENO HEADER VAR INCLUDES
+- # -------------------------------------------------------
+- # Tests whether HEADER exists, giving a warning if it cannot be compiled using
+- # the include files in INCLUDES and setting the cache variable VAR
+- # accordingly.
+- ac_fn_c_check_header_mongrel ()
+- {
+-   as_lineno=${as_lineno-"$1"} as_lineno_stack=as_lineno_stack=$as_lineno_stack
+-@@ -2059,16 +1992,83 @@ fi
+- eval ac_res=\$$3
+- 	       { $as_echo "$as_me:${as_lineno-$LINENO}: result: $ac_res" >&5
+- $as_echo "$ac_res" >&6; }
+- fi
+-   eval $as_lineno_stack; ${as_lineno_stack:+:} unset as_lineno
+- 
+- } # ac_fn_c_check_header_mongrel
+- 
+-+# ac_fn_c_check_func LINENO FUNC VAR
+-+# ----------------------------------
+-+# Tests whether FUNC exists, setting the cache variable VAR accordingly
+-+ac_fn_c_check_func ()
+-+{
+-+  as_lineno=${as_lineno-"$1"} as_lineno_stack=as_lineno_stack=$as_lineno_stack
+-+  { $as_echo "$as_me:${as_lineno-$LINENO}: checking for $2" >&5
+-+$as_echo_n "checking for $2... " >&6; }
+-+if eval \${$3+:} false; then :
+-+  $as_echo_n "(cached) " >&6
+-+else
+-+  cat confdefs.h - <<_ACEOF >conftest.$ac_ext
+-+/* end confdefs.h.  */
+-+/* Define $2 to an innocuous variant, in case <limits.h> declares $2.
+-+   For example, HP-UX 11i <limits.h> declares gettimeofday.  */
+-+#define $2 innocuous_$2
+-+
+-+/* System header to define __stub macros and hopefully few prototypes,
+-+    which can conflict with char $2 (); below.
+-+    Prefer <limits.h> to <assert.h> if __STDC__ is defined, since
+-+    <limits.h> exists even on freestanding compilers.  */
+-+
+-+#ifdef __STDC__
+-+# include <limits.h>
+-+#else
+-+# include <assert.h>
+-+#endif
+-+
+-+#undef $2
+-+
+-+/* Override any GCC internal prototype to avoid an error.
+-+   Use char because int might match the return type of a GCC
+-+   builtin and then its argument prototype would still apply.  */
+-+#ifdef __cplusplus
+-+extern "C"
+-+#endif
+-+char $2 ();
+-+/* The GNU C library defines this for functions which it implements
+-+    to always fail with ENOSYS.  Some functions are actually named
+-+    something starting with __ and the normal name is an alias.  */
+-+#if defined __stub_$2 || defined __stub___$2
+-+choke me
+-+#endif
+-+
+-+int
+-+main ()
+-+{
+-+return $2 ();
+-+  ;
+-+  return 0;
+-+}
+-+_ACEOF
+-+if ac_fn_c_try_link "$LINENO"; then :
+-+  eval "$3=yes"
+-+else
+-+  eval "$3=no"
+-+fi
+-+rm -f core conftest.err conftest.$ac_objext \
+-+    conftest$ac_exeext conftest.$ac_ext
+-+fi
+-+eval ac_res=\$$3
+-+	       { $as_echo "$as_me:${as_lineno-$LINENO}: result: $ac_res" >&5
+-+$as_echo "$ac_res" >&6; }
+-+  eval $as_lineno_stack; ${as_lineno_stack:+:} unset as_lineno
+-+
+-+} # ac_fn_c_check_func
+-+
+- # ac_fn_c_check_type LINENO TYPE VAR INCLUDES
+- # -------------------------------------------
+- # Tests whether TYPE exists after having included INCLUDES, setting cache
+- # variable VAR accordingly.
+- ac_fn_c_check_type ()
+- {
+-   as_lineno=${as_lineno-"$1"} as_lineno_stack=as_lineno_stack=$as_lineno_stack
+-   { $as_echo "$as_me:${as_lineno-$LINENO}: checking for $2" >&5
+-@@ -4817,17 +4817,16 @@ esac
+-     AR=$ac_ct_AR
+-   fi
+- else
+-   AR="$ac_cv_prog_AR"
+- fi
+- 
+- 
+- default_munmap="1"
+--JEMALLOC_USABLE_SIZE_CONST="const"
+- case "${host}" in
+-   *-*-darwin*)
+- 	CFLAGS="$CFLAGS"
+- 	abi="macho"
+- 	$as_echo "#define JEMALLOC_PURGE_MADVISE_FREE  " >>confdefs.h
+- 
+- 	RPATH=""
+- 	LD_PRELOAD_VAR="DYLD_INSERT_LIBRARIES"
+-@@ -4850,17 +4849,16 @@ case "${host}" in
+- 	CPPFLAGS="$CPPFLAGS -D_GNU_SOURCE"
+- 	abi="elf"
+- 	$as_echo "#define JEMALLOC_HAS_ALLOCA_H 1" >>confdefs.h
+- 
+- 	$as_echo "#define JEMALLOC_PURGE_MADVISE_DONTNEED  " >>confdefs.h
+- 
+- 	$as_echo "#define JEMALLOC_THREADED_INIT  " >>confdefs.h
+- 
+--	JEMALLOC_USABLE_SIZE_CONST=""
+- 	default_munmap="0"
+- 	;;
+-   *-*-netbsd*)
+- 	{ $as_echo "$as_me:${as_lineno-$LINENO}: checking ABI" >&5
+- $as_echo_n "checking ABI... " >&6; }
+-         cat confdefs.h - <<_ACEOF >conftest.$ac_ext
+- /* end confdefs.h.  */
+- #ifdef __ELF__
+-@@ -4930,16 +4928,60 @@ rm -f core conftest.err conftest.$ac_obj
+- 	PIC_CFLAGS=""
+- 	;;
+-   *)
+- 	{ $as_echo "$as_me:${as_lineno-$LINENO}: result: Unsupported operating system: ${host}" >&5
+- $as_echo "Unsupported operating system: ${host}" >&6; }
+- 	abi="elf"
+- 	;;
+- esac
+-+
+-+JEMALLOC_USABLE_SIZE_CONST=const
+-+for ac_header in malloc.h
+-+do :
+-+  ac_fn_c_check_header_mongrel "$LINENO" "malloc.h" "ac_cv_header_malloc_h" "$ac_includes_default"
+-+if test "x$ac_cv_header_malloc_h" = xyes; then :
+-+  cat >>confdefs.h <<_ACEOF
+-+#define HAVE_MALLOC_H 1
+-+_ACEOF
+-+
+-+  { $as_echo "$as_me:${as_lineno-$LINENO}: checking whether malloc_usable_size definition can use const argument" >&5
+-+$as_echo_n "checking whether malloc_usable_size definition can use const argument... " >&6; }
+-+  cat confdefs.h - <<_ACEOF >conftest.$ac_ext
+-+/* end confdefs.h.  */
+-+#include <malloc.h>
+-+     #include <stddef.h>
+-+    size_t malloc_usable_size(const void *ptr);
+-+
+-+int
+-+main ()
+-+{
+-+
+-+  ;
+-+  return 0;
+-+}
+-+_ACEOF
+-+if ac_fn_c_try_compile "$LINENO"; then :
+-+
+-+                { $as_echo "$as_me:${as_lineno-$LINENO}: result: yes" >&5
+-+$as_echo "yes" >&6; }
+-+
+-+else
+-+
+-+                JEMALLOC_USABLE_SIZE_CONST=
+-+                { $as_echo "$as_me:${as_lineno-$LINENO}: result: no" >&5
+-+$as_echo "no" >&6; }
+-+
+-+fi
+-+rm -f core conftest.err conftest.$ac_objext conftest.$ac_ext
+-+
+-+fi
+-+
+-+done
+-+
+- cat >>confdefs.h <<_ACEOF
+- #define JEMALLOC_USABLE_SIZE_CONST $JEMALLOC_USABLE_SIZE_CONST
+- _ACEOF
+- 
+- 
+- 
+- 
+- 
+-diff --git a/configure.ac b/configure.ac
+---- a/configure.ac
+-+++ b/configure.ac
+-@@ -253,17 +253,16 @@ AC_PROG_AR
+- dnl Platform-specific settings.  abi and RPATH can probably be determined
+- dnl programmatically, but doing so is error-prone, which makes it generally
+- dnl not worth the trouble.
+- dnl 
+- dnl Define cpp macros in CPPFLAGS, rather than doing AC_DEFINE(macro), since the
+- dnl definitions need to be seen before any headers are included, which is a pain
+- dnl to make happen otherwise.
+- default_munmap="1"
+--JEMALLOC_USABLE_SIZE_CONST="const"
+- case "${host}" in
+-   *-*-darwin*)
+- 	CFLAGS="$CFLAGS"
+- 	abi="macho"
+- 	AC_DEFINE([JEMALLOC_PURGE_MADVISE_FREE], [ ])
+- 	RPATH=""
+- 	LD_PRELOAD_VAR="DYLD_INSERT_LIBRARIES"
+- 	so="dylib"
+-@@ -281,17 +280,16 @@ case "${host}" in
+- 	;;
+-   *-*-linux*)
+- 	CFLAGS="$CFLAGS"
+- 	CPPFLAGS="$CPPFLAGS -D_GNU_SOURCE"
+- 	abi="elf"
+- 	AC_DEFINE([JEMALLOC_HAS_ALLOCA_H])
+- 	AC_DEFINE([JEMALLOC_PURGE_MADVISE_DONTNEED], [ ])
+- 	AC_DEFINE([JEMALLOC_THREADED_INIT], [ ])
+--	JEMALLOC_USABLE_SIZE_CONST=""
+- 	default_munmap="0"
+- 	;;
+-   *-*-netbsd*)
+- 	AC_MSG_CHECKING([ABI])
+-         AC_COMPILE_IFELSE([AC_LANG_PROGRAM(
+- [[#ifdef __ELF__
+- /* ELF */
+- #else
+-@@ -346,16 +344,32 @@ case "${host}" in
+- 	SOREV="${so}"
+- 	PIC_CFLAGS=""
+- 	;;
+-   *)
+- 	AC_MSG_RESULT([Unsupported operating system: ${host}])
+- 	abi="elf"
+- 	;;
+- esac
+-+
+-+JEMALLOC_USABLE_SIZE_CONST=const
+-+AC_CHECK_HEADERS([malloc.h], [
+-+  AC_MSG_CHECKING([whether malloc_usable_size definition can use const argument])
+-+  AC_COMPILE_IFELSE([AC_LANG_PROGRAM(
+-+    [#include <malloc.h>
+-+     #include <stddef.h>
+-+    size_t malloc_usable_size(const void *ptr);
+-+    ],
+-+    [])],[
+-+                AC_MSG_RESULT([yes])
+-+         ],[
+-+                JEMALLOC_USABLE_SIZE_CONST=
+-+                AC_MSG_RESULT([no])
+-+         ])
+-+])
+- AC_DEFINE_UNQUOTED([JEMALLOC_USABLE_SIZE_CONST], [$JEMALLOC_USABLE_SIZE_CONST])
+- AC_SUBST([abi])
+- AC_SUBST([RPATH])
+- AC_SUBST([LD_PRELOAD_VAR])
+- AC_SUBST([so])
+- AC_SUBST([importlib])
+- AC_SUBST([o])
+- AC_SUBST([a])
+diff --git a/memory/jemalloc/0002-Use-ULL-prefix-instead-of-LLU-for-unsigned-long-long.patch b/memory/jemalloc/0002-Use-ULL-prefix-instead-of-LLU-for-unsigned-long-long.patch
+deleted file mode 100644
+index 81bda50..0000000
+--- a/memory/jemalloc/0002-Use-ULL-prefix-instead-of-LLU-for-unsigned-long-long.patch
++++ /dev/null
+@@ -1,46 +0,0 @@
+-diff --git a/include/jemalloc/internal/hash.h b/include/jemalloc/internal/hash.h
+---- a/include/jemalloc/internal/hash.h
+-+++ b/include/jemalloc/internal/hash.h
+-@@ -71,19 +71,19 @@ hash_fmix_32(uint32_t h)
+- 	return (h);
+- }
+- 
+- JEMALLOC_INLINE uint64_t
+- hash_fmix_64(uint64_t k)
+- {
+- 
+- 	k ^= k >> 33;
+--	k *= QU(0xff51afd7ed558ccdLLU);
+-+	k *= QU(0xff51afd7ed558ccdULL);
+- 	k ^= k >> 33;
+--	k *= QU(0xc4ceb9fe1a85ec53LLU);
+-+	k *= QU(0xc4ceb9fe1a85ec53ULL);
+- 	k ^= k >> 33;
+- 
+- 	return (k);
+- }
+- 
+- JEMALLOC_INLINE uint32_t
+- hash_x86_32(const void *key, int len, uint32_t seed)
+- {
+-@@ -242,18 +242,18 @@ hash_x64_128(const void *key, const int 
+-     uint64_t r_out[2])
+- {
+- 	const uint8_t *data = (const uint8_t *) key;
+- 	const int nblocks = len / 16;
+- 
+- 	uint64_t h1 = seed;
+- 	uint64_t h2 = seed;
+- 
+--	const uint64_t c1 = QU(0x87c37b91114253d5LLU);
+--	const uint64_t c2 = QU(0x4cf5ad432745937fLLU);
+-+	const uint64_t c1 = QU(0x87c37b91114253d5ULL);
+-+	const uint64_t c2 = QU(0x4cf5ad432745937fULL);
+- 
+- 	/* body */
+- 	{
+- 		const uint64_t *blocks = (const uint64_t *) (data);
+- 		int i;
+- 
+- 		for (i = 0; i < nblocks; i++) {
+- 			uint64_t k1 = hash_get_block_64(blocks, i*2 + 0);
+diff --git a/memory/jemalloc/0003-Don-t-use-msvc_compat-s-C99-headers-with-MSVC-versio.patch b/memory/jemalloc/0003-Don-t-use-msvc_compat-s-C99-headers-with-MSVC-versio.patch
+deleted file mode 100644
+index aef2e69..0000000
+--- a/memory/jemalloc/0003-Don-t-use-msvc_compat-s-C99-headers-with-MSVC-versio.patch
++++ /dev/null
+@@ -1,1224 +0,0 @@
+-diff -r 1da44232e82e -r 73d73a2ae3ad configure
+---- a/configure	Wed May 21 14:41:51 2014 -0700
+-+++ b/configure	Thu May 29 16:35:25 2014 +0900
+-@@ -4333,16 +4333,20 @@ fi
+- 
+- if test "x${ac_cv_big_endian}" = "x1" ; then
+-   cat >>confdefs.h <<_ACEOF
+- #define JEMALLOC_BIG_ENDIAN
+- _ACEOF
+- 
+- fi
+- 
+-+if test "x${je_cv_msvc}" = "xyes" -a "x${ac_cv_header_inttypes_h}" = "xno"; then
+-+  CPPFLAGS="$CPPFLAGS -I${srcroot}/include/msvc_compat/C99"
+-+fi
+-+
+- # The cast to long int works around a bug in the HP C Compiler
+- # version HP92453-01 B.11.11.23709.GP, which incorrectly rejects
+- # declarations like `int a3[[(sizeof (unsigned char)) >= 0]];'.
+- # This bug is HP SR number 8606223364.
+- { $as_echo "$as_me:${as_lineno-$LINENO}: checking size of void *" >&5
+- $as_echo_n "checking size of void *... " >&6; }
+- if ${ac_cv_sizeof_void_p+:} false; then :
+-   $as_echo_n "(cached) " >&6
+-diff -r 1da44232e82e -r 73d73a2ae3ad configure.ac
+---- a/configure.ac	Wed May 21 14:41:51 2014 -0700
+-+++ b/configure.ac	Thu May 29 16:35:25 2014 +0900
+-@@ -150,16 +150,20 @@ if test "x$EXTRA_CFLAGS" != "x" ; then
+- fi
+- AC_PROG_CPP
+- 
+- AC_C_BIGENDIAN([ac_cv_big_endian=1], [ac_cv_big_endian=0])
+- if test "x${ac_cv_big_endian}" = "x1" ; then
+-   AC_DEFINE_UNQUOTED([JEMALLOC_BIG_ENDIAN], [ ])
+- fi
+- 
+-+if test "x${je_cv_msvc}" = "xyes" -a "x${ac_cv_header_inttypes_h}" = "xno"; then
+-+  CPPFLAGS="$CPPFLAGS -I${srcroot}/include/msvc_compat/C99"
+-+fi
+-+
+- AC_CHECK_SIZEOF([void *])
+- if test "x${ac_cv_sizeof_void_p}" = "x8" ; then
+-   LG_SIZEOF_PTR=3
+- elif test "x${ac_cv_sizeof_void_p}" = "x4" ; then
+-   LG_SIZEOF_PTR=2
+- else
+-   AC_MSG_ERROR([Unsupported pointer size: ${ac_cv_sizeof_void_p}])
+- fi
+-diff -r 1da44232e82e -r 73d73a2ae3ad include/msvc_compat/C99/inttypes.h
+---- /dev/null	Thu Jan 01 00:00:00 1970 +0000
+-+++ b/include/msvc_compat/C99/inttypes.h	Thu May 29 16:35:25 2014 +0900
+-@@ -0,0 +1,313 @@
+-+// ISO C9x  compliant inttypes.h for Microsoft Visual Studio
+-+// Based on ISO/IEC 9899:TC2 Committee draft (May 6, 2005) WG14/N1124 
+-+// 
+-+//  Copyright (c) 2006 Alexander Chemeris
+-+// 
+-+// Redistribution and use in source and binary forms, with or without
+-+// modification, are permitted provided that the following conditions are met:
+-+// 
+-+//   1. Redistributions of source code must retain the above copyright notice,
+-+//      this list of conditions and the following disclaimer.
+-+// 
+-+//   2. Redistributions in binary form must reproduce the above copyright
+-+//      notice, this list of conditions and the following disclaimer in the
+-+//      documentation and/or other materials provided with the distribution.
+-+// 
+-+//   3. The name of the author may be used to endorse or promote products
+-+//      derived from this software without specific prior written permission.
+-+// 
+-+// THIS SOFTWARE IS PROVIDED BY THE AUTHOR ``AS IS'' AND ANY EXPRESS OR IMPLIED
+-+// WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF
+-+// MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO
+-+// EVENT SHALL THE AUTHOR BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL,
+-+// SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO,
+-+// PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS;
+-+// OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, 
+-+// WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR
+-+// OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF
+-+// ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+-+// 
+-+///////////////////////////////////////////////////////////////////////////////
+-+
+-+#ifndef _MSC_VER // [
+-+#error "Use this header only with Microsoft Visual C++ compilers!"
+-+#endif // _MSC_VER ]
+-+
+-+#ifndef _MSC_INTTYPES_H_ // [
+-+#define _MSC_INTTYPES_H_
+-+
+-+#if _MSC_VER > 1000
+-+#pragma once
+-+#endif
+-+
+-+#include "stdint.h"
+-+
+-+// 7.8 Format conversion of integer types
+-+
+-+typedef struct {
+-+   intmax_t quot;
+-+   intmax_t rem;
+-+} imaxdiv_t;
+-+
+-+// 7.8.1 Macros for format specifiers
+-+
+-+#if !defined(__cplusplus) || defined(__STDC_FORMAT_MACROS) // [   See footnote 185 at page 198
+-+
+-+#ifdef _WIN64
+-+#  define __PRI64_PREFIX        "l"
+-+#  define __PRIPTR_PREFIX       "l"
+-+#else
+-+#  define __PRI64_PREFIX        "ll"
+-+#  define __PRIPTR_PREFIX
+-+#endif
+-+
+-+// The fprintf macros for signed integers are:
+-+#define PRId8       "d"
+-+#define PRIi8       "i"
+-+#define PRIdLEAST8  "d"
+-+#define PRIiLEAST8  "i"
+-+#define PRIdFAST8   "d"
+-+#define PRIiFAST8   "i"
+-+
+-+#define PRId16       "hd"
+-+#define PRIi16       "hi"
+-+#define PRIdLEAST16  "hd"
+-+#define PRIiLEAST16  "hi"
+-+#define PRIdFAST16   "hd"
+-+#define PRIiFAST16   "hi"
+-+
+-+#define PRId32       "d"
+-+#define PRIi32       "i"
+-+#define PRIdLEAST32  "d"
+-+#define PRIiLEAST32  "i"
+-+#define PRIdFAST32   "d"
+-+#define PRIiFAST32   "i"
+-+
+-+#define PRId64       __PRI64_PREFIX "d"
+-+#define PRIi64       __PRI64_PREFIX "i"
+-+#define PRIdLEAST64  __PRI64_PREFIX "d"
+-+#define PRIiLEAST64  __PRI64_PREFIX "i"
+-+#define PRIdFAST64   __PRI64_PREFIX "d"
+-+#define PRIiFAST64   __PRI64_PREFIX "i"
+-+
+-+#define PRIdMAX     __PRI64_PREFIX "d"
+-+#define PRIiMAX     __PRI64_PREFIX "i"
+-+
+-+#define PRIdPTR     __PRIPTR_PREFIX "d"
+-+#define PRIiPTR     __PRIPTR_PREFIX "i"
+-+
+-+// The fprintf macros for unsigned integers are:
+-+#define PRIo8       "o"
+-+#define PRIu8       "u"
+-+#define PRIx8       "x"
+-+#define PRIX8       "X"
+-+#define PRIoLEAST8  "o"
+-+#define PRIuLEAST8  "u"
+-+#define PRIxLEAST8  "x"
+-+#define PRIXLEAST8  "X"
+-+#define PRIoFAST8   "o"
+-+#define PRIuFAST8   "u"
+-+#define PRIxFAST8   "x"
+-+#define PRIXFAST8   "X"
+-+
+-+#define PRIo16       "ho"
+-+#define PRIu16       "hu"
+-+#define PRIx16       "hx"
+-+#define PRIX16       "hX"
+-+#define PRIoLEAST16  "ho"
+-+#define PRIuLEAST16  "hu"
+-+#define PRIxLEAST16  "hx"
+-+#define PRIXLEAST16  "hX"
+-+#define PRIoFAST16   "ho"
+-+#define PRIuFAST16   "hu"
+-+#define PRIxFAST16   "hx"
+-+#define PRIXFAST16   "hX"
+-+
+-+#define PRIo32       "o"
+-+#define PRIu32       "u"
+-+#define PRIx32       "x"
+-+#define PRIX32       "X"
+-+#define PRIoLEAST32  "o"
+-+#define PRIuLEAST32  "u"
+-+#define PRIxLEAST32  "x"
+-+#define PRIXLEAST32  "X"
+-+#define PRIoFAST32   "o"
+-+#define PRIuFAST32   "u"
+-+#define PRIxFAST32   "x"
+-+#define PRIXFAST32   "X"
+-+
+-+#define PRIo64       __PRI64_PREFIX "o"
+-+#define PRIu64       __PRI64_PREFIX "u"
+-+#define PRIx64       __PRI64_PREFIX "x"
+-+#define PRIX64       __PRI64_PREFIX "X"
+-+#define PRIoLEAST64  __PRI64_PREFIX "o"
+-+#define PRIuLEAST64  __PRI64_PREFIX "u"
+-+#define PRIxLEAST64  __PRI64_PREFIX "x"
+-+#define PRIXLEAST64  __PRI64_PREFIX "X"
+-+#define PRIoFAST64   __PRI64_PREFIX "o"
+-+#define PRIuFAST64   __PRI64_PREFIX "u"
+-+#define PRIxFAST64   __PRI64_PREFIX "x"
+-+#define PRIXFAST64   __PRI64_PREFIX "X"
+-+
+-+#define PRIoMAX     __PRI64_PREFIX "o"
+-+#define PRIuMAX     __PRI64_PREFIX "u"
+-+#define PRIxMAX     __PRI64_PREFIX "x"
+-+#define PRIXMAX     __PRI64_PREFIX "X"
+-+
+-+#define PRIoPTR     __PRIPTR_PREFIX "o"
+-+#define PRIuPTR     __PRIPTR_PREFIX "u"
+-+#define PRIxPTR     __PRIPTR_PREFIX "x"
+-+#define PRIXPTR     __PRIPTR_PREFIX "X"
+-+
+-+// The fscanf macros for signed integers are:
+-+#define SCNd8       "d"
+-+#define SCNi8       "i"
+-+#define SCNdLEAST8  "d"
+-+#define SCNiLEAST8  "i"
+-+#define SCNdFAST8   "d"
+-+#define SCNiFAST8   "i"
+-+
+-+#define SCNd16       "hd"
+-+#define SCNi16       "hi"
+-+#define SCNdLEAST16  "hd"
+-+#define SCNiLEAST16  "hi"
+-+#define SCNdFAST16   "hd"
+-+#define SCNiFAST16   "hi"
+-+
+-+#define SCNd32       "ld"
+-+#define SCNi32       "li"
+-+#define SCNdLEAST32  "ld"
+-+#define SCNiLEAST32  "li"
+-+#define SCNdFAST32   "ld"
+-+#define SCNiFAST32   "li"
+-+
+-+#define SCNd64       "I64d"
+-+#define SCNi64       "I64i"
+-+#define SCNdLEAST64  "I64d"
+-+#define SCNiLEAST64  "I64i"
+-+#define SCNdFAST64   "I64d"
+-+#define SCNiFAST64   "I64i"
+-+
+-+#define SCNdMAX     "I64d"
+-+#define SCNiMAX     "I64i"
+-+
+-+#ifdef _WIN64 // [
+-+#  define SCNdPTR     "I64d"
+-+#  define SCNiPTR     "I64i"
+-+#else  // _WIN64 ][
+-+#  define SCNdPTR     "ld"
+-+#  define SCNiPTR     "li"
+-+#endif  // _WIN64 ]
+-+
+-+// The fscanf macros for unsigned integers are:
+-+#define SCNo8       "o"
+-+#define SCNu8       "u"
+-+#define SCNx8       "x"
+-+#define SCNX8       "X"
+-+#define SCNoLEAST8  "o"
+-+#define SCNuLEAST8  "u"
+-+#define SCNxLEAST8  "x"
+-+#define SCNXLEAST8  "X"
+-+#define SCNoFAST8   "o"
+-+#define SCNuFAST8   "u"
+-+#define SCNxFAST8   "x"
+-+#define SCNXFAST8   "X"
+-+
+-+#define SCNo16       "ho"
+-+#define SCNu16       "hu"
+-+#define SCNx16       "hx"
+-+#define SCNX16       "hX"
+-+#define SCNoLEAST16  "ho"
+-+#define SCNuLEAST16  "hu"
+-+#define SCNxLEAST16  "hx"
+-+#define SCNXLEAST16  "hX"
+-+#define SCNoFAST16   "ho"
+-+#define SCNuFAST16   "hu"
+-+#define SCNxFAST16   "hx"
+-+#define SCNXFAST16   "hX"
+-+
+-+#define SCNo32       "lo"
+-+#define SCNu32       "lu"
+-+#define SCNx32       "lx"
+-+#define SCNX32       "lX"
+-+#define SCNoLEAST32  "lo"
+-+#define SCNuLEAST32  "lu"
+-+#define SCNxLEAST32  "lx"
+-+#define SCNXLEAST32  "lX"
+-+#define SCNoFAST32   "lo"
+-+#define SCNuFAST32   "lu"
+-+#define SCNxFAST32   "lx"
+-+#define SCNXFAST32   "lX"
+-+
+-+#define SCNo64       "I64o"
+-+#define SCNu64       "I64u"
+-+#define SCNx64       "I64x"
+-+#define SCNX64       "I64X"
+-+#define SCNoLEAST64  "I64o"
+-+#define SCNuLEAST64  "I64u"
+-+#define SCNxLEAST64  "I64x"
+-+#define SCNXLEAST64  "I64X"
+-+#define SCNoFAST64   "I64o"
+-+#define SCNuFAST64   "I64u"
+-+#define SCNxFAST64   "I64x"
+-+#define SCNXFAST64   "I64X"
+-+
+-+#define SCNoMAX     "I64o"
+-+#define SCNuMAX     "I64u"
+-+#define SCNxMAX     "I64x"
+-+#define SCNXMAX     "I64X"
+-+
+-+#ifdef _WIN64 // [
+-+#  define SCNoPTR     "I64o"
+-+#  define SCNuPTR     "I64u"
+-+#  define SCNxPTR     "I64x"
+-+#  define SCNXPTR     "I64X"
+-+#else  // _WIN64 ][
+-+#  define SCNoPTR     "lo"
+-+#  define SCNuPTR     "lu"
+-+#  define SCNxPTR     "lx"
+-+#  define SCNXPTR     "lX"
+-+#endif  // _WIN64 ]
+-+
+-+#endif // __STDC_FORMAT_MACROS ]
+-+
+-+// 7.8.2 Functions for greatest-width integer types
+-+
+-+// 7.8.2.1 The imaxabs function
+-+#define imaxabs _abs64
+-+
+-+// 7.8.2.2 The imaxdiv function
+-+
+-+// This is modified version of div() function from Microsoft's div.c found
+-+// in %MSVC.NET%\crt\src\div.c
+-+#ifdef STATIC_IMAXDIV // [
+-+static
+-+#else // STATIC_IMAXDIV ][
+-+_inline
+-+#endif // STATIC_IMAXDIV ]
+-+imaxdiv_t __cdecl imaxdiv(intmax_t numer, intmax_t denom)
+-+{
+-+   imaxdiv_t result;
+-+
+-+   result.quot = numer / denom;
+-+   result.rem = numer % denom;
+-+
+-+   if (numer < 0 && result.rem > 0) {
+-+      // did division wrong; must fix up
+-+      ++result.quot;
+-+      result.rem -= denom;
+-+   }
+-+
+-+   return result;
+-+}
+-+
+-+// 7.8.2.3 The strtoimax and strtoumax functions
+-+#define strtoimax _strtoi64
+-+#define strtoumax _strtoui64
+-+
+-+// 7.8.2.4 The wcstoimax and wcstoumax functions
+-+#define wcstoimax _wcstoi64
+-+#define wcstoumax _wcstoui64
+-+
+-+
+-+#endif // _MSC_INTTYPES_H_ ]
+-diff -r 1da44232e82e -r 73d73a2ae3ad include/msvc_compat/C99/stdbool.h
+---- /dev/null	Thu Jan 01 00:00:00 1970 +0000
+-+++ b/include/msvc_compat/C99/stdbool.h	Thu May 29 16:35:25 2014 +0900
+-@@ -0,0 +1,16 @@
+-+#ifndef stdbool_h
+-+#define stdbool_h
+-+
+-+#include <wtypes.h>
+-+
+-+/* MSVC doesn't define _Bool or bool in C, but does have BOOL */
+-+/* Note this doesn't pass autoconf's test because (bool) 0.5 != true */
+-+typedef BOOL _Bool;
+-+
+-+#define bool _Bool
+-+#define true 1
+-+#define false 0
+-+
+-+#define __bool_true_false_are_defined 1
+-+
+-+#endif /* stdbool_h */
+-diff -r 1da44232e82e -r 73d73a2ae3ad include/msvc_compat/C99/stdint.h
+---- /dev/null	Thu Jan 01 00:00:00 1970 +0000
+-+++ b/include/msvc_compat/C99/stdint.h	Thu May 29 16:35:25 2014 +0900
+-@@ -0,0 +1,247 @@
+-+// ISO C9x  compliant stdint.h for Microsoft Visual Studio
+-+// Based on ISO/IEC 9899:TC2 Committee draft (May 6, 2005) WG14/N1124 
+-+// 
+-+//  Copyright (c) 2006-2008 Alexander Chemeris
+-+// 
+-+// Redistribution and use in source and binary forms, with or without
+-+// modification, are permitted provided that the following conditions are met:
+-+// 
+-+//   1. Redistributions of source code must retain the above copyright notice,
+-+//      this list of conditions and the following disclaimer.
+-+// 
+-+//   2. Redistributions in binary form must reproduce the above copyright
+-+//      notice, this list of conditions and the following disclaimer in the
+-+//      documentation and/or other materials provided with the distribution.
+-+// 
+-+//   3. The name of the author may be used to endorse or promote products
+-+//      derived from this software without specific prior written permission.
+-+// 
+-+// THIS SOFTWARE IS PROVIDED BY THE AUTHOR ``AS IS'' AND ANY EXPRESS OR IMPLIED
+-+// WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF
+-+// MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO
+-+// EVENT SHALL THE AUTHOR BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL,
+-+// SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO,
+-+// PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS;
+-+// OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, 
+-+// WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR
+-+// OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF
+-+// ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+-+// 
+-+///////////////////////////////////////////////////////////////////////////////
+-+
+-+#ifndef _MSC_VER // [
+-+#error "Use this header only with Microsoft Visual C++ compilers!"
+-+#endif // _MSC_VER ]
+-+
+-+#ifndef _MSC_STDINT_H_ // [
+-+#define _MSC_STDINT_H_
+-+
+-+#if _MSC_VER > 1000
+-+#pragma once
+-+#endif
+-+
+-+#include <limits.h>
+-+
+-+// For Visual Studio 6 in C++ mode and for many Visual Studio versions when
+-+// compiling for ARM we should wrap <wchar.h> include with 'extern "C++" {}'
+-+// or compiler give many errors like this:
+-+//   error C2733: second C linkage of overloaded function 'wmemchr' not allowed
+-+#ifdef __cplusplus
+-+extern "C" {
+-+#endif
+-+#  include <wchar.h>
+-+#ifdef __cplusplus
+-+}
+-+#endif
+-+
+-+// Define _W64 macros to mark types changing their size, like intptr_t.
+-+#ifndef _W64
+-+#  if !defined(__midl) && (defined(_X86_) || defined(_M_IX86)) && _MSC_VER >= 1300
+-+#     define _W64 __w64
+-+#  else
+-+#     define _W64
+-+#  endif
+-+#endif
+-+
+-+
+-+// 7.18.1 Integer types
+-+
+-+// 7.18.1.1 Exact-width integer types
+-+
+-+// Visual Studio 6 and Embedded Visual C++ 4 doesn't
+-+// realize that, e.g. char has the same size as __int8
+-+// so we give up on __intX for them.
+-+#if (_MSC_VER < 1300)
+-+   typedef signed char       int8_t;
+-+   typedef signed short      int16_t;
+-+   typedef signed int        int32_t;
+-+   typedef unsigned char     uint8_t;
+-+   typedef unsigned short    uint16_t;
+-+   typedef unsigned int      uint32_t;
+-+#else
+-+   typedef signed __int8     int8_t;
+-+   typedef signed __int16    int16_t;
+-+   typedef signed __int32    int32_t;
+-+   typedef unsigned __int8   uint8_t;
+-+   typedef unsigned __int16  uint16_t;
+-+   typedef unsigned __int32  uint32_t;
+-+#endif
+-+typedef signed __int64       int64_t;
+-+typedef unsigned __int64     uint64_t;
+-+
+-+
+-+// 7.18.1.2 Minimum-width integer types
+-+typedef int8_t    int_least8_t;
+-+typedef int16_t   int_least16_t;
+-+typedef int32_t   int_least32_t;
+-+typedef int64_t   int_least64_t;
+-+typedef uint8_t   uint_least8_t;
+-+typedef uint16_t  uint_least16_t;
+-+typedef uint32_t  uint_least32_t;
+-+typedef uint64_t  uint_least64_t;
+-+
+-+// 7.18.1.3 Fastest minimum-width integer types
+-+typedef int8_t    int_fast8_t;
+-+typedef int16_t   int_fast16_t;
+-+typedef int32_t   int_fast32_t;
+-+typedef int64_t   int_fast64_t;
+-+typedef uint8_t   uint_fast8_t;
+-+typedef uint16_t  uint_fast16_t;
+-+typedef uint32_t  uint_fast32_t;
+-+typedef uint64_t  uint_fast64_t;
+-+
+-+// 7.18.1.4 Integer types capable of holding object pointers
+-+#ifdef _WIN64 // [
+-+   typedef signed __int64    intptr_t;
+-+   typedef unsigned __int64  uintptr_t;
+-+#else // _WIN64 ][
+-+   typedef _W64 signed int   intptr_t;
+-+   typedef _W64 unsigned int uintptr_t;
+-+#endif // _WIN64 ]
+-+
+-+// 7.18.1.5 Greatest-width integer types
+-+typedef int64_t   intmax_t;
+-+typedef uint64_t  uintmax_t;
+-+
+-+
+-+// 7.18.2 Limits of specified-width integer types
+-+
+-+#if !defined(__cplusplus) || defined(__STDC_LIMIT_MACROS) // [   See footnote 220 at page 257 and footnote 221 at page 259
+-+
+-+// 7.18.2.1 Limits of exact-width integer types
+-+#define INT8_MIN     ((int8_t)_I8_MIN)
+-+#define INT8_MAX     _I8_MAX
+-+#define INT16_MIN    ((int16_t)_I16_MIN)
+-+#define INT16_MAX    _I16_MAX
+-+#define INT32_MIN    ((int32_t)_I32_MIN)
+-+#define INT32_MAX    _I32_MAX
+-+#define INT64_MIN    ((int64_t)_I64_MIN)
+-+#define INT64_MAX    _I64_MAX
+-+#define UINT8_MAX    _UI8_MAX
+-+#define UINT16_MAX   _UI16_MAX
+-+#define UINT32_MAX   _UI32_MAX
+-+#define UINT64_MAX   _UI64_MAX
+-+
+-+// 7.18.2.2 Limits of minimum-width integer types
+-+#define INT_LEAST8_MIN    INT8_MIN
+-+#define INT_LEAST8_MAX    INT8_MAX
+-+#define INT_LEAST16_MIN   INT16_MIN
+-+#define INT_LEAST16_MAX   INT16_MAX
+-+#define INT_LEAST32_MIN   INT32_MIN
+-+#define INT_LEAST32_MAX   INT32_MAX
+-+#define INT_LEAST64_MIN   INT64_MIN
+-+#define INT_LEAST64_MAX   INT64_MAX
+-+#define UINT_LEAST8_MAX   UINT8_MAX
+-+#define UINT_LEAST16_MAX  UINT16_MAX
+-+#define UINT_LEAST32_MAX  UINT32_MAX
+-+#define UINT_LEAST64_MAX  UINT64_MAX
+-+
+-+// 7.18.2.3 Limits of fastest minimum-width integer types
+-+#define INT_FAST8_MIN    INT8_MIN
+-+#define INT_FAST8_MAX    INT8_MAX
+-+#define INT_FAST16_MIN   INT16_MIN
+-+#define INT_FAST16_MAX   INT16_MAX
+-+#define INT_FAST32_MIN   INT32_MIN
+-+#define INT_FAST32_MAX   INT32_MAX
+-+#define INT_FAST64_MIN   INT64_MIN
+-+#define INT_FAST64_MAX   INT64_MAX
+-+#define UINT_FAST8_MAX   UINT8_MAX
+-+#define UINT_FAST16_MAX  UINT16_MAX
+-+#define UINT_FAST32_MAX  UINT32_MAX
+-+#define UINT_FAST64_MAX  UINT64_MAX
+-+
+-+// 7.18.2.4 Limits of integer types capable of holding object pointers
+-+#ifdef _WIN64 // [
+-+#  define INTPTR_MIN   INT64_MIN
+-+#  define INTPTR_MAX   INT64_MAX
+-+#  define UINTPTR_MAX  UINT64_MAX
+-+#else // _WIN64 ][
+-+#  define INTPTR_MIN   INT32_MIN
+-+#  define INTPTR_MAX   INT32_MAX
+-+#  define UINTPTR_MAX  UINT32_MAX
+-+#endif // _WIN64 ]
+-+
+-+// 7.18.2.5 Limits of greatest-width integer types
+-+#define INTMAX_MIN   INT64_MIN
+-+#define INTMAX_MAX   INT64_MAX
+-+#define UINTMAX_MAX  UINT64_MAX
+-+
+-+// 7.18.3 Limits of other integer types
+-+
+-+#ifdef _WIN64 // [
+-+#  define PTRDIFF_MIN  _I64_MIN
+-+#  define PTRDIFF_MAX  _I64_MAX
+-+#else  // _WIN64 ][
+-+#  define PTRDIFF_MIN  _I32_MIN
+-+#  define PTRDIFF_MAX  _I32_MAX
+-+#endif  // _WIN64 ]
+-+
+-+#define SIG_ATOMIC_MIN  INT_MIN
+-+#define SIG_ATOMIC_MAX  INT_MAX
+-+
+-+#ifndef SIZE_MAX // [
+-+#  ifdef _WIN64 // [
+-+#     define SIZE_MAX  _UI64_MAX
+-+#  else // _WIN64 ][
+-+#     define SIZE_MAX  _UI32_MAX
+-+#  endif // _WIN64 ]
+-+#endif // SIZE_MAX ]
+-+
+-+// WCHAR_MIN and WCHAR_MAX are also defined in <wchar.h>
+-+#ifndef WCHAR_MIN // [
+-+#  define WCHAR_MIN  0
+-+#endif  // WCHAR_MIN ]
+-+#ifndef WCHAR_MAX // [
+-+#  define WCHAR_MAX  _UI16_MAX
+-+#endif  // WCHAR_MAX ]
+-+
+-+#define WINT_MIN  0
+-+#define WINT_MAX  _UI16_MAX
+-+
+-+#endif // __STDC_LIMIT_MACROS ]
+-+
+-+
+-+// 7.18.4 Limits of other integer types
+-+
+-+#if !defined(__cplusplus) || defined(__STDC_CONSTANT_MACROS) // [   See footnote 224 at page 260
+-+
+-+// 7.18.4.1 Macros for minimum-width integer constants
+-+
+-+#define INT8_C(val)  val##i8
+-+#define INT16_C(val) val##i16
+-+#define INT32_C(val) val##i32
+-+#define INT64_C(val) val##i64
+-+
+-+#define UINT8_C(val)  val##ui8
+-+#define UINT16_C(val) val##ui16
+-+#define UINT32_C(val) val##ui32
+-+#define UINT64_C(val) val##ui64
+-+
+-+// 7.18.4.2 Macros for greatest-width integer constants
+-+#define INTMAX_C   INT64_C
+-+#define UINTMAX_C  UINT64_C
+-+
+-+#endif // __STDC_CONSTANT_MACROS ]
+-+
+-+
+-+#endif // _MSC_STDINT_H_ ]
+-diff -r 1da44232e82e -r 73d73a2ae3ad include/msvc_compat/inttypes.h
+---- a/include/msvc_compat/inttypes.h	Wed May 21 14:41:51 2014 -0700
+-+++ /dev/null	Thu Jan 01 00:00:00 1970 +0000
+-@@ -1,313 +0,0 @@
+--// ISO C9x  compliant inttypes.h for Microsoft Visual Studio
+--// Based on ISO/IEC 9899:TC2 Committee draft (May 6, 2005) WG14/N1124 
+--// 
+--//  Copyright (c) 2006 Alexander Chemeris
+--// 
+--// Redistribution and use in source and binary forms, with or without
+--// modification, are permitted provided that the following conditions are met:
+--// 
+--//   1. Redistributions of source code must retain the above copyright notice,
+--//      this list of conditions and the following disclaimer.
+--// 
+--//   2. Redistributions in binary form must reproduce the above copyright
+--//      notice, this list of conditions and the following disclaimer in the
+--//      documentation and/or other materials provided with the distribution.
+--// 
+--//   3. The name of the author may be used to endorse or promote products
+--//      derived from this software without specific prior written permission.
+--// 
+--// THIS SOFTWARE IS PROVIDED BY THE AUTHOR ``AS IS'' AND ANY EXPRESS OR IMPLIED
+--// WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF
+--// MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO
+--// EVENT SHALL THE AUTHOR BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL,
+--// SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO,
+--// PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS;
+--// OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, 
+--// WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR
+--// OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF
+--// ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+--// 
+--///////////////////////////////////////////////////////////////////////////////
+--
+--#ifndef _MSC_VER // [
+--#error "Use this header only with Microsoft Visual C++ compilers!"
+--#endif // _MSC_VER ]
+--
+--#ifndef _MSC_INTTYPES_H_ // [
+--#define _MSC_INTTYPES_H_
+--
+--#if _MSC_VER > 1000
+--#pragma once
+--#endif
+--
+--#include "stdint.h"
+--
+--// 7.8 Format conversion of integer types
+--
+--typedef struct {
+--   intmax_t quot;
+--   intmax_t rem;
+--} imaxdiv_t;
+--
+--// 7.8.1 Macros for format specifiers
+--
+--#if !defined(__cplusplus) || defined(__STDC_FORMAT_MACROS) // [   See footnote 185 at page 198
+--
+--#ifdef _WIN64
+--#  define __PRI64_PREFIX        "l"
+--#  define __PRIPTR_PREFIX       "l"
+--#else
+--#  define __PRI64_PREFIX        "ll"
+--#  define __PRIPTR_PREFIX
+--#endif
+--
+--// The fprintf macros for signed integers are:
+--#define PRId8       "d"
+--#define PRIi8       "i"
+--#define PRIdLEAST8  "d"
+--#define PRIiLEAST8  "i"
+--#define PRIdFAST8   "d"
+--#define PRIiFAST8   "i"
+--
+--#define PRId16       "hd"
+--#define PRIi16       "hi"
+--#define PRIdLEAST16  "hd"
+--#define PRIiLEAST16  "hi"
+--#define PRIdFAST16   "hd"
+--#define PRIiFAST16   "hi"
+--
+--#define PRId32       "d"
+--#define PRIi32       "i"
+--#define PRIdLEAST32  "d"
+--#define PRIiLEAST32  "i"
+--#define PRIdFAST32   "d"
+--#define PRIiFAST32   "i"
+--
+--#define PRId64       __PRI64_PREFIX "d"
+--#define PRIi64       __PRI64_PREFIX "i"
+--#define PRIdLEAST64  __PRI64_PREFIX "d"
+--#define PRIiLEAST64  __PRI64_PREFIX "i"
+--#define PRIdFAST64   __PRI64_PREFIX "d"
+--#define PRIiFAST64   __PRI64_PREFIX "i"
+--
+--#define PRIdMAX     __PRI64_PREFIX "d"
+--#define PRIiMAX     __PRI64_PREFIX "i"
+--
+--#define PRIdPTR     __PRIPTR_PREFIX "d"
+--#define PRIiPTR     __PRIPTR_PREFIX "i"
+--
+--// The fprintf macros for unsigned integers are:
+--#define PRIo8       "o"
+--#define PRIu8       "u"
+--#define PRIx8       "x"
+--#define PRIX8       "X"
+--#define PRIoLEAST8  "o"
+--#define PRIuLEAST8  "u"
+--#define PRIxLEAST8  "x"
+--#define PRIXLEAST8  "X"
+--#define PRIoFAST8   "o"
+--#define PRIuFAST8   "u"
+--#define PRIxFAST8   "x"
+--#define PRIXFAST8   "X"
+--
+--#define PRIo16       "ho"
+--#define PRIu16       "hu"
+--#define PRIx16       "hx"
+--#define PRIX16       "hX"
+--#define PRIoLEAST16  "ho"
+--#define PRIuLEAST16  "hu"
+--#define PRIxLEAST16  "hx"
+--#define PRIXLEAST16  "hX"
+--#define PRIoFAST16   "ho"
+--#define PRIuFAST16   "hu"
+--#define PRIxFAST16   "hx"
+--#define PRIXFAST16   "hX"
+--
+--#define PRIo32       "o"
+--#define PRIu32       "u"
+--#define PRIx32       "x"
+--#define PRIX32       "X"
+--#define PRIoLEAST32  "o"
+--#define PRIuLEAST32  "u"
+--#define PRIxLEAST32  "x"
+--#define PRIXLEAST32  "X"
+--#define PRIoFAST32   "o"
+--#define PRIuFAST32   "u"
+--#define PRIxFAST32   "x"
+--#define PRIXFAST32   "X"
+--
+--#define PRIo64       __PRI64_PREFIX "o"
+--#define PRIu64       __PRI64_PREFIX "u"
+--#define PRIx64       __PRI64_PREFIX "x"
+--#define PRIX64       __PRI64_PREFIX "X"
+--#define PRIoLEAST64  __PRI64_PREFIX "o"
+--#define PRIuLEAST64  __PRI64_PREFIX "u"
+--#define PRIxLEAST64  __PRI64_PREFIX "x"
+--#define PRIXLEAST64  __PRI64_PREFIX "X"
+--#define PRIoFAST64   __PRI64_PREFIX "o"
+--#define PRIuFAST64   __PRI64_PREFIX "u"
+--#define PRIxFAST64   __PRI64_PREFIX "x"
+--#define PRIXFAST64   __PRI64_PREFIX "X"
+--
+--#define PRIoMAX     __PRI64_PREFIX "o"
+--#define PRIuMAX     __PRI64_PREFIX "u"
+--#define PRIxMAX     __PRI64_PREFIX "x"
+--#define PRIXMAX     __PRI64_PREFIX "X"
+--
+--#define PRIoPTR     __PRIPTR_PREFIX "o"
+--#define PRIuPTR     __PRIPTR_PREFIX "u"
+--#define PRIxPTR     __PRIPTR_PREFIX "x"
+--#define PRIXPTR     __PRIPTR_PREFIX "X"
+--
+--// The fscanf macros for signed integers are:
+--#define SCNd8       "d"
+--#define SCNi8       "i"
+--#define SCNdLEAST8  "d"
+--#define SCNiLEAST8  "i"
+--#define SCNdFAST8   "d"
+--#define SCNiFAST8   "i"
+--
+--#define SCNd16       "hd"
+--#define SCNi16       "hi"
+--#define SCNdLEAST16  "hd"
+--#define SCNiLEAST16  "hi"
+--#define SCNdFAST16   "hd"
+--#define SCNiFAST16   "hi"
+--
+--#define SCNd32       "ld"
+--#define SCNi32       "li"
+--#define SCNdLEAST32  "ld"
+--#define SCNiLEAST32  "li"
+--#define SCNdFAST32   "ld"
+--#define SCNiFAST32   "li"
+--
+--#define SCNd64       "I64d"
+--#define SCNi64       "I64i"
+--#define SCNdLEAST64  "I64d"
+--#define SCNiLEAST64  "I64i"
+--#define SCNdFAST64   "I64d"
+--#define SCNiFAST64   "I64i"
+--
+--#define SCNdMAX     "I64d"
+--#define SCNiMAX     "I64i"
+--
+--#ifdef _WIN64 // [
+--#  define SCNdPTR     "I64d"
+--#  define SCNiPTR     "I64i"
+--#else  // _WIN64 ][
+--#  define SCNdPTR     "ld"
+--#  define SCNiPTR     "li"
+--#endif  // _WIN64 ]
+--
+--// The fscanf macros for unsigned integers are:
+--#define SCNo8       "o"
+--#define SCNu8       "u"
+--#define SCNx8       "x"
+--#define SCNX8       "X"
+--#define SCNoLEAST8  "o"
+--#define SCNuLEAST8  "u"
+--#define SCNxLEAST8  "x"
+--#define SCNXLEAST8  "X"
+--#define SCNoFAST8   "o"
+--#define SCNuFAST8   "u"
+--#define SCNxFAST8   "x"
+--#define SCNXFAST8   "X"
+--
+--#define SCNo16       "ho"
+--#define SCNu16       "hu"
+--#define SCNx16       "hx"
+--#define SCNX16       "hX"
+--#define SCNoLEAST16  "ho"
+--#define SCNuLEAST16  "hu"
+--#define SCNxLEAST16  "hx"
+--#define SCNXLEAST16  "hX"
+--#define SCNoFAST16   "ho"
+--#define SCNuFAST16   "hu"
+--#define SCNxFAST16   "hx"
+--#define SCNXFAST16   "hX"
+--
+--#define SCNo32       "lo"
+--#define SCNu32       "lu"
+--#define SCNx32       "lx"
+--#define SCNX32       "lX"
+--#define SCNoLEAST32  "lo"
+--#define SCNuLEAST32  "lu"
+--#define SCNxLEAST32  "lx"
+--#define SCNXLEAST32  "lX"
+--#define SCNoFAST32   "lo"
+--#define SCNuFAST32   "lu"
+--#define SCNxFAST32   "lx"
+--#define SCNXFAST32   "lX"
+--
+--#define SCNo64       "I64o"
+--#define SCNu64       "I64u"
+--#define SCNx64       "I64x"
+--#define SCNX64       "I64X"
+--#define SCNoLEAST64  "I64o"
+--#define SCNuLEAST64  "I64u"
+--#define SCNxLEAST64  "I64x"
+--#define SCNXLEAST64  "I64X"
+--#define SCNoFAST64   "I64o"
+--#define SCNuFAST64   "I64u"
+--#define SCNxFAST64   "I64x"
+--#define SCNXFAST64   "I64X"
+--
+--#define SCNoMAX     "I64o"
+--#define SCNuMAX     "I64u"
+--#define SCNxMAX     "I64x"
+--#define SCNXMAX     "I64X"
+--
+--#ifdef _WIN64 // [
+--#  define SCNoPTR     "I64o"
+--#  define SCNuPTR     "I64u"
+--#  define SCNxPTR     "I64x"
+--#  define SCNXPTR     "I64X"
+--#else  // _WIN64 ][
+--#  define SCNoPTR     "lo"
+--#  define SCNuPTR     "lu"
+--#  define SCNxPTR     "lx"
+--#  define SCNXPTR     "lX"
+--#endif  // _WIN64 ]
+--
+--#endif // __STDC_FORMAT_MACROS ]
+--
+--// 7.8.2 Functions for greatest-width integer types
+--
+--// 7.8.2.1 The imaxabs function
+--#define imaxabs _abs64
+--
+--// 7.8.2.2 The imaxdiv function
+--
+--// This is modified version of div() function from Microsoft's div.c found
+--// in %MSVC.NET%\crt\src\div.c
+--#ifdef STATIC_IMAXDIV // [
+--static
+--#else // STATIC_IMAXDIV ][
+--_inline
+--#endif // STATIC_IMAXDIV ]
+--imaxdiv_t __cdecl imaxdiv(intmax_t numer, intmax_t denom)
+--{
+--   imaxdiv_t result;
+--
+--   result.quot = numer / denom;
+--   result.rem = numer % denom;
+--
+--   if (numer < 0 && result.rem > 0) {
+--      // did division wrong; must fix up
+--      ++result.quot;
+--      result.rem -= denom;
+--   }
+--
+--   return result;
+--}
+--
+--// 7.8.2.3 The strtoimax and strtoumax functions
+--#define strtoimax _strtoi64
+--#define strtoumax _strtoui64
+--
+--// 7.8.2.4 The wcstoimax and wcstoumax functions
+--#define wcstoimax _wcstoi64
+--#define wcstoumax _wcstoui64
+--
+--
+--#endif // _MSC_INTTYPES_H_ ]
+-diff -r 1da44232e82e -r 73d73a2ae3ad include/msvc_compat/stdbool.h
+---- a/include/msvc_compat/stdbool.h	Wed May 21 14:41:51 2014 -0700
+-+++ /dev/null	Thu Jan 01 00:00:00 1970 +0000
+-@@ -1,16 +0,0 @@
+--#ifndef stdbool_h
+--#define stdbool_h
+--
+--#include <wtypes.h>
+--
+--/* MSVC doesn't define _Bool or bool in C, but does have BOOL */
+--/* Note this doesn't pass autoconf's test because (bool) 0.5 != true */
+--typedef BOOL _Bool;
+--
+--#define bool _Bool
+--#define true 1
+--#define false 0
+--
+--#define __bool_true_false_are_defined 1
+--
+--#endif /* stdbool_h */
+-diff -r 1da44232e82e -r 73d73a2ae3ad include/msvc_compat/stdint.h
+---- a/include/msvc_compat/stdint.h	Wed May 21 14:41:51 2014 -0700
+-+++ /dev/null	Thu Jan 01 00:00:00 1970 +0000
+-@@ -1,247 +0,0 @@
+--// ISO C9x  compliant stdint.h for Microsoft Visual Studio
+--// Based on ISO/IEC 9899:TC2 Committee draft (May 6, 2005) WG14/N1124 
+--// 
+--//  Copyright (c) 2006-2008 Alexander Chemeris
+--// 
+--// Redistribution and use in source and binary forms, with or without
+--// modification, are permitted provided that the following conditions are met:
+--// 
+--//   1. Redistributions of source code must retain the above copyright notice,
+--//      this list of conditions and the following disclaimer.
+--// 
+--//   2. Redistributions in binary form must reproduce the above copyright
+--//      notice, this list of conditions and the following disclaimer in the
+--//      documentation and/or other materials provided with the distribution.
+--// 
+--//   3. The name of the author may be used to endorse or promote products
+--//      derived from this software without specific prior written permission.
+--// 
+--// THIS SOFTWARE IS PROVIDED BY THE AUTHOR ``AS IS'' AND ANY EXPRESS OR IMPLIED
+--// WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF
+--// MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO
+--// EVENT SHALL THE AUTHOR BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL,
+--// SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO,
+--// PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS;
+--// OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, 
+--// WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR
+--// OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF
+--// ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+--// 
+--///////////////////////////////////////////////////////////////////////////////
+--
+--#ifndef _MSC_VER // [
+--#error "Use this header only with Microsoft Visual C++ compilers!"
+--#endif // _MSC_VER ]
+--
+--#ifndef _MSC_STDINT_H_ // [
+--#define _MSC_STDINT_H_
+--
+--#if _MSC_VER > 1000
+--#pragma once
+--#endif
+--
+--#include <limits.h>
+--
+--// For Visual Studio 6 in C++ mode and for many Visual Studio versions when
+--// compiling for ARM we should wrap <wchar.h> include with 'extern "C++" {}'
+--// or compiler give many errors like this:
+--//   error C2733: second C linkage of overloaded function 'wmemchr' not allowed
+--#ifdef __cplusplus
+--extern "C" {
+--#endif
+--#  include <wchar.h>
+--#ifdef __cplusplus
+--}
+--#endif
+--
+--// Define _W64 macros to mark types changing their size, like intptr_t.
+--#ifndef _W64
+--#  if !defined(__midl) && (defined(_X86_) || defined(_M_IX86)) && _MSC_VER >= 1300
+--#     define _W64 __w64
+--#  else
+--#     define _W64
+--#  endif
+--#endif
+--
+--
+--// 7.18.1 Integer types
+--
+--// 7.18.1.1 Exact-width integer types
+--
+--// Visual Studio 6 and Embedded Visual C++ 4 doesn't
+--// realize that, e.g. char has the same size as __int8
+--// so we give up on __intX for them.
+--#if (_MSC_VER < 1300)
+--   typedef signed char       int8_t;
+--   typedef signed short      int16_t;
+--   typedef signed int        int32_t;
+--   typedef unsigned char     uint8_t;
+--   typedef unsigned short    uint16_t;
+--   typedef unsigned int      uint32_t;
+--#else
+--   typedef signed __int8     int8_t;
+--   typedef signed __int16    int16_t;
+--   typedef signed __int32    int32_t;
+--   typedef unsigned __int8   uint8_t;
+--   typedef unsigned __int16  uint16_t;
+--   typedef unsigned __int32  uint32_t;
+--#endif
+--typedef signed __int64       int64_t;
+--typedef unsigned __int64     uint64_t;
+--
+--
+--// 7.18.1.2 Minimum-width integer types
+--typedef int8_t    int_least8_t;
+--typedef int16_t   int_least16_t;
+--typedef int32_t   int_least32_t;
+--typedef int64_t   int_least64_t;
+--typedef uint8_t   uint_least8_t;
+--typedef uint16_t  uint_least16_t;
+--typedef uint32_t  uint_least32_t;
+--typedef uint64_t  uint_least64_t;
+--
+--// 7.18.1.3 Fastest minimum-width integer types
+--typedef int8_t    int_fast8_t;
+--typedef int16_t   int_fast16_t;
+--typedef int32_t   int_fast32_t;
+--typedef int64_t   int_fast64_t;
+--typedef uint8_t   uint_fast8_t;
+--typedef uint16_t  uint_fast16_t;
+--typedef uint32_t  uint_fast32_t;
+--typedef uint64_t  uint_fast64_t;
+--
+--// 7.18.1.4 Integer types capable of holding object pointers
+--#ifdef _WIN64 // [
+--   typedef signed __int64    intptr_t;
+--   typedef unsigned __int64  uintptr_t;
+--#else // _WIN64 ][
+--   typedef _W64 signed int   intptr_t;
+--   typedef _W64 unsigned int uintptr_t;
+--#endif // _WIN64 ]
+--
+--// 7.18.1.5 Greatest-width integer types
+--typedef int64_t   intmax_t;
+--typedef uint64_t  uintmax_t;
+--
+--
+--// 7.18.2 Limits of specified-width integer types
+--
+--#if !defined(__cplusplus) || defined(__STDC_LIMIT_MACROS) // [   See footnote 220 at page 257 and footnote 221 at page 259
+--
+--// 7.18.2.1 Limits of exact-width integer types
+--#define INT8_MIN     ((int8_t)_I8_MIN)
+--#define INT8_MAX     _I8_MAX
+--#define INT16_MIN    ((int16_t)_I16_MIN)
+--#define INT16_MAX    _I16_MAX
+--#define INT32_MIN    ((int32_t)_I32_MIN)
+--#define INT32_MAX    _I32_MAX
+--#define INT64_MIN    ((int64_t)_I64_MIN)
+--#define INT64_MAX    _I64_MAX
+--#define UINT8_MAX    _UI8_MAX
+--#define UINT16_MAX   _UI16_MAX
+--#define UINT32_MAX   _UI32_MAX
+--#define UINT64_MAX   _UI64_MAX
+--
+--// 7.18.2.2 Limits of minimum-width integer types
+--#define INT_LEAST8_MIN    INT8_MIN
+--#define INT_LEAST8_MAX    INT8_MAX
+--#define INT_LEAST16_MIN   INT16_MIN
+--#define INT_LEAST16_MAX   INT16_MAX
+--#define INT_LEAST32_MIN   INT32_MIN
+--#define INT_LEAST32_MAX   INT32_MAX
+--#define INT_LEAST64_MIN   INT64_MIN
+--#define INT_LEAST64_MAX   INT64_MAX
+--#define UINT_LEAST8_MAX   UINT8_MAX
+--#define UINT_LEAST16_MAX  UINT16_MAX
+--#define UINT_LEAST32_MAX  UINT32_MAX
+--#define UINT_LEAST64_MAX  UINT64_MAX
+--
+--// 7.18.2.3 Limits of fastest minimum-width integer types
+--#define INT_FAST8_MIN    INT8_MIN
+--#define INT_FAST8_MAX    INT8_MAX
+--#define INT_FAST16_MIN   INT16_MIN
+--#define INT_FAST16_MAX   INT16_MAX
+--#define INT_FAST32_MIN   INT32_MIN
+--#define INT_FAST32_MAX   INT32_MAX
+--#define INT_FAST64_MIN   INT64_MIN
+--#define INT_FAST64_MAX   INT64_MAX
+--#define UINT_FAST8_MAX   UINT8_MAX
+--#define UINT_FAST16_MAX  UINT16_MAX
+--#define UINT_FAST32_MAX  UINT32_MAX
+--#define UINT_FAST64_MAX  UINT64_MAX
+--
+--// 7.18.2.4 Limits of integer types capable of holding object pointers
+--#ifdef _WIN64 // [
+--#  define INTPTR_MIN   INT64_MIN
+--#  define INTPTR_MAX   INT64_MAX
+--#  define UINTPTR_MAX  UINT64_MAX
+--#else // _WIN64 ][
+--#  define INTPTR_MIN   INT32_MIN
+--#  define INTPTR_MAX   INT32_MAX
+--#  define UINTPTR_MAX  UINT32_MAX
+--#endif // _WIN64 ]
+--
+--// 7.18.2.5 Limits of greatest-width integer types
+--#define INTMAX_MIN   INT64_MIN
+--#define INTMAX_MAX   INT64_MAX
+--#define UINTMAX_MAX  UINT64_MAX
+--
+--// 7.18.3 Limits of other integer types
+--
+--#ifdef _WIN64 // [
+--#  define PTRDIFF_MIN  _I64_MIN
+--#  define PTRDIFF_MAX  _I64_MAX
+--#else  // _WIN64 ][
+--#  define PTRDIFF_MIN  _I32_MIN
+--#  define PTRDIFF_MAX  _I32_MAX
+--#endif  // _WIN64 ]
+--
+--#define SIG_ATOMIC_MIN  INT_MIN
+--#define SIG_ATOMIC_MAX  INT_MAX
+--
+--#ifndef SIZE_MAX // [
+--#  ifdef _WIN64 // [
+--#     define SIZE_MAX  _UI64_MAX
+--#  else // _WIN64 ][
+--#     define SIZE_MAX  _UI32_MAX
+--#  endif // _WIN64 ]
+--#endif // SIZE_MAX ]
+--
+--// WCHAR_MIN and WCHAR_MAX are also defined in <wchar.h>
+--#ifndef WCHAR_MIN // [
+--#  define WCHAR_MIN  0
+--#endif  // WCHAR_MIN ]
+--#ifndef WCHAR_MAX // [
+--#  define WCHAR_MAX  _UI16_MAX
+--#endif  // WCHAR_MAX ]
+--
+--#define WINT_MIN  0
+--#define WINT_MAX  _UI16_MAX
+--
+--#endif // __STDC_LIMIT_MACROS ]
+--
+--
+--// 7.18.4 Limits of other integer types
+--
+--#if !defined(__cplusplus) || defined(__STDC_CONSTANT_MACROS) // [   See footnote 224 at page 260
+--
+--// 7.18.4.1 Macros for minimum-width integer constants
+--
+--#define INT8_C(val)  val##i8
+--#define INT16_C(val) val##i16
+--#define INT32_C(val) val##i32
+--#define INT64_C(val) val##i64
+--
+--#define UINT8_C(val)  val##ui8
+--#define UINT16_C(val) val##ui16
+--#define UINT32_C(val) val##ui32
+--#define UINT64_C(val) val##ui64
+--
+--// 7.18.4.2 Macros for greatest-width integer constants
+--#define INTMAX_C   INT64_C
+--#define UINTMAX_C  UINT64_C
+--
+--#endif // __STDC_CONSTANT_MACROS ]
+--
+--
+--#endif // _MSC_STDINT_H_ ]
+diff --git a/memory/jemalloc/0004-Try-to-use-__builtin_ffsl-if-ffsl-is-unavailable.patch b/memory/jemalloc/0004-Try-to-use-__builtin_ffsl-if-ffsl-is-unavailable.patch
+deleted file mode 100644
+index 5df2f8c..0000000
+--- a/memory/jemalloc/0004-Try-to-use-__builtin_ffsl-if-ffsl-is-unavailable.patch
++++ /dev/null
+@@ -1,354 +0,0 @@
+-diff --git a/configure b/configure
+---- a/configure
+-+++ b/configure
+-@@ -6940,18 +6940,67 @@ else
+-   je_cv_function_ffsl=no
+- fi
+- rm -f core conftest.err conftest.$ac_objext \
+-     conftest$ac_exeext conftest.$ac_ext
+- fi
+- { $as_echo "$as_me:${as_lineno-$LINENO}: result: $je_cv_function_ffsl" >&5
+- $as_echo "$je_cv_function_ffsl" >&6; }
+- 
+--if test "x${je_cv_function_ffsl}" != "xyes" ; then
+--   as_fn_error $? "Cannot build without ffsl(3)" "$LINENO" 5
+-+if test "x${je_cv_function_ffsl}" == "xyes" ; then
+-+  $as_echo "#define JEMALLOC_INTERNAL_FFSL ffsl" >>confdefs.h
+-+
+-+  $as_echo "#define JEMALLOC_INTERNAL_FFS ffs" >>confdefs.h
+-+
+-+else
+-+
+-+{ $as_echo "$as_me:${as_lineno-$LINENO}: checking whether a program using __builtin_ffsl is compilable" >&5
+-+$as_echo_n "checking whether a program using __builtin_ffsl is compilable... " >&6; }
+-+if ${je_cv_gcc_builtin_ffsl+:} false; then :
+-+  $as_echo_n "(cached) " >&6
+-+else
+-+  cat confdefs.h - <<_ACEOF >conftest.$ac_ext
+-+/* end confdefs.h.  */
+-+
+-+  #include <stdio.h>
+-+  #include <strings.h>
+-+  #include <string.h>
+-+
+-+int
+-+main ()
+-+{
+-+
+-+	{
+-+		int rv = __builtin_ffsl(0x08);
+-+		printf("%d\n", rv);
+-+	}
+-+
+-+  ;
+-+  return 0;
+-+}
+-+_ACEOF
+-+if ac_fn_c_try_link "$LINENO"; then :
+-+  je_cv_gcc_builtin_ffsl=yes
+-+else
+-+  je_cv_gcc_builtin_ffsl=no
+-+fi
+-+rm -f core conftest.err conftest.$ac_objext \
+-+    conftest$ac_exeext conftest.$ac_ext
+-+fi
+-+{ $as_echo "$as_me:${as_lineno-$LINENO}: result: $je_cv_gcc_builtin_ffsl" >&5
+-+$as_echo "$je_cv_gcc_builtin_ffsl" >&6; }
+-+
+-+  if test "x${je_cv_gcc_builtin_ffsl}" == "xyes" ; then
+-+    $as_echo "#define JEMALLOC_INTERNAL_FFSL __builtin_ffsl" >>confdefs.h
+-+
+-+    $as_echo "#define JEMALLOC_INTERNAL_FFS __builtin_ffs" >>confdefs.h
+-+
+-+  else
+-+    as_fn_error $? "Cannot build without ffsl(3) or __builtin_ffsl()" "$LINENO" 5
+-+  fi
+- fi
+- 
+- 
+- 
+- { $as_echo "$as_me:${as_lineno-$LINENO}: checking whether atomic(9) is compilable" >&5
+- $as_echo_n "checking whether atomic(9) is compilable... " >&6; }
+- if ${je_cv_atomic9+:} false; then :
+-   $as_echo_n "(cached) " >&6
+-diff --git a/configure.ac b/configure.ac
+---- a/configure.ac
+-+++ b/configure.ac
+-@@ -1160,31 +1160,51 @@ fi
+- AC_SUBST([enable_tls])
+- if test "x${enable_tls}" = "x1" ; then
+-   AC_DEFINE_UNQUOTED([JEMALLOC_TLS], [ ])
+- elif test "x${force_tls}" = "x1" ; then
+-   AC_MSG_ERROR([Failed to configure TLS, which is mandatory for correct function])
+- fi
+- 
+- dnl ============================================================================
+--dnl Check for ffsl(3), and fail if not found.  This function exists on all
+--dnl platforms that jemalloc currently has a chance of functioning on without
+--dnl modification.
+-+dnl Check for ffsl(3), then __builtin_ffsl(), and fail if neither are found.
+-+dnl One of those two functions should (theoretically) exist on all platforms
+-+dnl that jemalloc currently has a chance of functioning on without modification.
+-+dnl We additionally assume ffs() or __builtin_ffs() are defined if
+-+dnl ffsl() or __builtin_ffsl() are defined, respectively.
+- JE_COMPILABLE([a program using ffsl], [
+- #include <stdio.h>
+- #include <strings.h>
+- #include <string.h>
+- ], [
+- 	{
+- 		int rv = ffsl(0x08);
+- 		printf("%d\n", rv);
+- 	}
+- ], [je_cv_function_ffsl])
+--if test "x${je_cv_function_ffsl}" != "xyes" ; then
+--   AC_MSG_ERROR([Cannot build without ffsl(3)])
+-+if test "x${je_cv_function_ffsl}" == "xyes" ; then
+-+  AC_DEFINE([JEMALLOC_INTERNAL_FFSL], [ffsl])
+-+  AC_DEFINE([JEMALLOC_INTERNAL_FFS], [ffs])
+-+else
+-+  JE_COMPILABLE([a program using __builtin_ffsl], [
+-+  #include <stdio.h>
+-+  #include <strings.h>
+-+  #include <string.h>
+-+  ], [
+-+	{
+-+		int rv = __builtin_ffsl(0x08);
+-+		printf("%d\n", rv);
+-+	}
+-+  ], [je_cv_gcc_builtin_ffsl])
+-+  if test "x${je_cv_gcc_builtin_ffsl}" == "xyes" ; then
+-+    AC_DEFINE([JEMALLOC_INTERNAL_FFSL], [__builtin_ffsl])
+-+    AC_DEFINE([JEMALLOC_INTERNAL_FFS], [__builtin_ffs])
+-+  else
+-+    AC_MSG_ERROR([Cannot build without ffsl(3) or __builtin_ffsl()])
+-+  fi
+- fi
+- 
+- dnl ============================================================================
+- dnl Check for atomic(9) operations as provided on FreeBSD.
+- 
+- JE_COMPILABLE([atomic(9)], [
+- #include <sys/types.h>
+- #include <machine/atomic.h>
+-diff --git a/include/jemalloc/internal/arena.h b/include/jemalloc/internal/arena.h
+---- a/include/jemalloc/internal/arena.h
+-+++ b/include/jemalloc/internal/arena.h
+-@@ -810,17 +810,17 @@ arena_run_regind(arena_run_t *run, arena
+- 	 * Avoid doing division with a variable divisor if possible.  Using
+- 	 * actual division here can reduce allocator throughput by over 20%!
+- 	 */
+- 	diff = (unsigned)((uintptr_t)ptr - (uintptr_t)run -
+- 	    bin_info->reg0_offset);
+- 
+- 	/* Rescale (factor powers of 2 out of the numerator and denominator). */
+- 	interval = bin_info->reg_interval;
+--	shift = ffs(interval) - 1;
+-+	shift = jemalloc_ffs(interval) - 1;
+- 	diff >>= shift;
+- 	interval >>= shift;
+- 
+- 	if (interval == 1) {
+- 		/* The divisor was a power of 2. */
+- 		regind = diff;
+- 	} else {
+- 		/*
+-diff --git a/include/jemalloc/internal/bitmap.h b/include/jemalloc/internal/bitmap.h
+---- a/include/jemalloc/internal/bitmap.h
+-+++ b/include/jemalloc/internal/bitmap.h
+-@@ -125,21 +125,21 @@ bitmap_sfu(bitmap_t *bitmap, const bitma
+- 	size_t bit;
+- 	bitmap_t g;
+- 	unsigned i;
+- 
+- 	assert(bitmap_full(bitmap, binfo) == false);
+- 
+- 	i = binfo->nlevels - 1;
+- 	g = bitmap[binfo->levels[i].group_offset];
+--	bit = ffsl(g) - 1;
+-+	bit = jemalloc_ffsl(g) - 1;
+- 	while (i > 0) {
+- 		i--;
+- 		g = bitmap[binfo->levels[i].group_offset + bit];
+--		bit = (bit << LG_BITMAP_GROUP_NBITS) + (ffsl(g) - 1);
+-+		bit = (bit << LG_BITMAP_GROUP_NBITS) + (jemalloc_ffsl(g) - 1);
+- 	}
+- 
+- 	bitmap_set(bitmap, binfo, bit);
+- 	return (bit);
+- }
+- 
+- JEMALLOC_INLINE void
+- bitmap_unset(bitmap_t *bitmap, const bitmap_info_t *binfo, size_t bit)
+-diff --git a/include/jemalloc/internal/jemalloc_internal.h.in b/include/jemalloc/internal/jemalloc_internal.h.in
+---- a/include/jemalloc/internal/jemalloc_internal.h.in
+-+++ b/include/jemalloc/internal/jemalloc_internal.h.in
+-@@ -9,21 +9,23 @@
+- #  define EPERM  ERROR_WRITE_FAULT
+- #  define EFAULT ERROR_INVALID_ADDRESS
+- #  define ENOMEM ERROR_NOT_ENOUGH_MEMORY
+- #  undef ERANGE
+- #  define ERANGE ERROR_INVALID_DATA
+- #else
+- #  include <sys/param.h>
+- #  include <sys/mman.h>
+--#  include <sys/syscall.h>
+--#  if !defined(SYS_write) && defined(__NR_write)
+--#    define SYS_write __NR_write
+-+#  if !defined(__pnacl__) && !defined(__native_client__)
+-+#    include <sys/syscall.h>
+-+#    if !defined(SYS_write) && defined(__NR_write)
+-+#      define SYS_write __NR_write
+-+#    endif
+-+#    include <sys/uio.h>
+- #  endif
+--#  include <sys/uio.h>
+- #  include <pthread.h>
+- #  include <errno.h>
+- #endif
+- #include <sys/types.h>
+- 
+- #include <limits.h>
+- #ifndef SIZE_T_MAX
+- #  define SIZE_T_MAX	SIZE_MAX
+-@@ -275,16 +277,19 @@ static const bool config_ivsalloc =
+- #    define LG_QUANTUM		4
+- #  endif
+- #  ifdef __SH4__
+- #    define LG_QUANTUM		4
+- #  endif
+- #  ifdef __tile__
+- #    define LG_QUANTUM		4
+- #  endif
+-+#  ifdef __le32__
+-+#    define LG_QUANTUM		4
+-+#  endif
+- #  ifndef LG_QUANTUM
+- #    error "No LG_QUANTUM definition for architecture; specify via CPPFLAGS"
+- #  endif
+- #endif
+- 
+- #define	QUANTUM			((size_t)(1U << LG_QUANTUM))
+- #define	QUANTUM_MASK		(QUANTUM - 1)
+- 
+-diff --git a/include/jemalloc/internal/jemalloc_internal_defs.h.in b/include/jemalloc/internal/jemalloc_internal_defs.h.in
+---- a/include/jemalloc/internal/jemalloc_internal_defs.h.in
+-+++ b/include/jemalloc/internal/jemalloc_internal_defs.h.in
+-@@ -153,16 +153,23 @@
+-  * memory map holes, much like munmap(2) does.
+-  */
+- #undef JEMALLOC_MREMAP
+- 
+- /* TLS is used to map arenas and magazine caches to threads. */
+- #undef JEMALLOC_TLS
+- 
+- /*
+-+ * ffs()/ffsl() functions to use for bitmapping.  Don't use these directly;
+-+ * instead, use jemalloc_ffs() or jemalloc_ffsl() from util.h.
+-+ */
+-+#undef JEMALLOC_INTERNAL_FFSL
+-+#undef JEMALLOC_INTERNAL_FFS
+-+
+-+/*
+-  * JEMALLOC_IVSALLOC enables ivsalloc(), which verifies that pointers reside
+-  * within jemalloc-owned chunks before dereferencing them.
+-  */
+- #undef JEMALLOC_IVSALLOC
+- 
+- /*
+-  * Darwin (OS X) uses zones to work around Mach-O symbol override shortcomings.
+-  */
+-diff --git a/include/jemalloc/internal/util.h b/include/jemalloc/internal/util.h
+---- a/include/jemalloc/internal/util.h
+-+++ b/include/jemalloc/internal/util.h
+-@@ -104,22 +104,44 @@ void malloc_cprintf(void (*write)(void *
+- void	malloc_printf(const char *format, ...)
+-     JEMALLOC_ATTR(format(printf, 1, 2));
+- 
+- #endif /* JEMALLOC_H_EXTERNS */
+- /******************************************************************************/
+- #ifdef JEMALLOC_H_INLINES
+- 
+- #ifndef JEMALLOC_ENABLE_INLINE
+-+int	jemalloc_ffsl(long bitmap);
+-+int	jemalloc_ffs(int bitmap);
+- size_t	pow2_ceil(size_t x);
+- void	set_errno(int errnum);
+- int	get_errno(void);
+- #endif
+- 
+- #if (defined(JEMALLOC_ENABLE_INLINE) || defined(JEMALLOC_UTIL_C_))
+-+
+-+/* Sanity check: */
+-+#if !defined(JEMALLOC_INTERNAL_FFSL) || !defined(JEMALLOC_INTERNAL_FFS)
+-+#  error Both JEMALLOC_INTERNAL_FFSL && JEMALLOC_INTERNAL_FFS should have been defined by configure
+-+#endif
+-+
+-+JEMALLOC_ALWAYS_INLINE int
+-+jemalloc_ffsl(long bitmap)
+-+{
+-+
+-+        return (JEMALLOC_INTERNAL_FFSL(bitmap));
+-+}
+-+
+-+JEMALLOC_ALWAYS_INLINE int
+-+jemalloc_ffs(int bitmap)
+-+{
+-+
+-+        return (JEMALLOC_INTERNAL_FFS(bitmap));
+-+}
+-+
+- /* Compute the smallest power of 2 that is >= x. */
+- JEMALLOC_INLINE size_t
+- pow2_ceil(size_t x)
+- {
+- 
+- 	x--;
+- 	x |= x >> 1;
+- 	x |= x >> 2;
+-diff --git a/src/arena.c b/src/arena.c
+---- a/src/arena.c
+-+++ b/src/arena.c
+-@@ -2378,17 +2378,17 @@ bin_info_run_size_calc(arena_bin_info_t 
+- 	/*
+- 	 * Determine redzone size based on minimum alignment and minimum
+- 	 * redzone size.  Add padding to the end of the run if it is needed to
+- 	 * align the regions.  The padding allows each redzone to be half the
+- 	 * minimum alignment; without the padding, each redzone would have to
+- 	 * be twice as large in order to maintain alignment.
+- 	 */
+- 	if (config_fill && opt_redzone) {
+--		size_t align_min = ZU(1) << (ffs(bin_info->reg_size) - 1);
+-+		size_t align_min = ZU(1) << (jemalloc_ffs(bin_info->reg_size) - 1);
+- 		if (align_min <= REDZONE_MINSIZE) {
+- 			bin_info->redzone_size = REDZONE_MINSIZE;
+- 			pad_size = 0;
+- 		} else {
+- 			bin_info->redzone_size = align_min >> 1;
+- 			pad_size = bin_info->redzone_size;
+- 		}
+- 	} else {
+-diff --git a/src/rtree.c b/src/rtree.c
+---- a/src/rtree.c
+-+++ b/src/rtree.c
+-@@ -4,18 +4,18 @@
+- rtree_t *
+- rtree_new(unsigned bits, rtree_alloc_t *alloc, rtree_dalloc_t *dalloc)
+- {
+- 	rtree_t *ret;
+- 	unsigned bits_per_level, bits_in_leaf, height, i;
+- 
+- 	assert(bits > 0 && bits <= (sizeof(uintptr_t) << 3));
+- 
+--	bits_per_level = ffs(pow2_ceil((RTREE_NODESIZE / sizeof(void *)))) - 1;
+--	bits_in_leaf = ffs(pow2_ceil((RTREE_NODESIZE / sizeof(uint8_t)))) - 1;
+-+	bits_per_level = jemalloc_ffs(pow2_ceil((RTREE_NODESIZE / sizeof(void *)))) - 1;
+-+	bits_in_leaf = jemalloc_ffs(pow2_ceil((RTREE_NODESIZE / sizeof(uint8_t)))) - 1;
+- 	if (bits > bits_in_leaf) {
+- 		height = 1 + (bits - bits_in_leaf) / bits_per_level;
+- 		if ((height-1) * bits_per_level + bits_in_leaf != bits)
+- 			height++;
+- 	} else {
+- 		height = 1;
+- 	}
+- 	assert((height-1) * bits_per_level + bits_in_leaf >= bits);
+diff --git a/memory/jemalloc/0005-Check-for-__builtin_ffsl-before-ffsl.patch b/memory/jemalloc/0005-Check-for-__builtin_ffsl-before-ffsl.patch
+deleted file mode 100644
+index 3348d6a..0000000
+--- a/memory/jemalloc/0005-Check-for-__builtin_ffsl-before-ffsl.patch
++++ /dev/null
+@@ -1,225 +0,0 @@
+-diff --git a/configure b/configure
+---- a/configure
+-+++ b/configure
+-@@ -6904,27 +6904,70 @@ if test "x${enable_tls}" = "x1" ; then
+- #define JEMALLOC_TLS
+- _ACEOF
+- 
+- elif test "x${force_tls}" = "x1" ; then
+-   as_fn_error $? "Failed to configure TLS, which is mandatory for correct function" "$LINENO" 5
+- fi
+- 
+- 
+-+{ $as_echo "$as_me:${as_lineno-$LINENO}: checking whether a program using __builtin_ffsl is compilable" >&5
+-+$as_echo_n "checking whether a program using __builtin_ffsl is compilable... " >&6; }
+-+if ${je_cv_gcc_builtin_ffsl+:} false; then :
+-+  $as_echo_n "(cached) " >&6
+-+else
+-+  cat confdefs.h - <<_ACEOF >conftest.$ac_ext
+-+/* end confdefs.h.  */
+-+
+-+#include <stdio.h>
+-+#include <strings.h>
+-+#include <string.h>
+-+
+-+int
+-+main ()
+-+{
+-+
+-+	{
+-+		int rv = __builtin_ffsl(0x08);
+-+		printf("%d\n", rv);
+-+	}
+-+
+-+  ;
+-+  return 0;
+-+}
+-+_ACEOF
+-+if ac_fn_c_try_link "$LINENO"; then :
+-+  je_cv_gcc_builtin_ffsl=yes
+-+else
+-+  je_cv_gcc_builtin_ffsl=no
+-+fi
+-+rm -f core conftest.err conftest.$ac_objext \
+-+    conftest$ac_exeext conftest.$ac_ext
+-+fi
+-+{ $as_echo "$as_me:${as_lineno-$LINENO}: result: $je_cv_gcc_builtin_ffsl" >&5
+-+$as_echo "$je_cv_gcc_builtin_ffsl" >&6; }
+-+
+-+if test "x${je_cv_gcc_builtin_ffsl}" == "xyes" ; then
+-+  $as_echo "#define JEMALLOC_INTERNAL_FFSL __builtin_ffsl" >>confdefs.h
+-+
+-+  $as_echo "#define JEMALLOC_INTERNAL_FFS __builtin_ffs" >>confdefs.h
+-+
+-+else
+-+
+- { $as_echo "$as_me:${as_lineno-$LINENO}: checking whether a program using ffsl is compilable" >&5
+- $as_echo_n "checking whether a program using ffsl is compilable... " >&6; }
+- if ${je_cv_function_ffsl+:} false; then :
+-   $as_echo_n "(cached) " >&6
+- else
+-   cat confdefs.h - <<_ACEOF >conftest.$ac_ext
+- /* end confdefs.h.  */
+- 
+--#include <stdio.h>
+--#include <strings.h>
+--#include <string.h>
+-+  #include <stdio.h>
+-+  #include <strings.h>
+-+  #include <string.h>
+- 
+- int
+- main ()
+- {
+- 
+- 	{
+- 		int rv = ffsl(0x08);
+- 		printf("%d\n", rv);
+-@@ -6940,71 +6983,29 @@ else
+-   je_cv_function_ffsl=no
+- fi
+- rm -f core conftest.err conftest.$ac_objext \
+-     conftest$ac_exeext conftest.$ac_ext
+- fi
+- { $as_echo "$as_me:${as_lineno-$LINENO}: result: $je_cv_function_ffsl" >&5
+- $as_echo "$je_cv_function_ffsl" >&6; }
+- 
+--if test "x${je_cv_function_ffsl}" == "xyes" ; then
+--  $as_echo "#define JEMALLOC_INTERNAL_FFSL ffsl" >>confdefs.h
+--
+--  $as_echo "#define JEMALLOC_INTERNAL_FFS ffs" >>confdefs.h
+--
+--else
+--
+--{ $as_echo "$as_me:${as_lineno-$LINENO}: checking whether a program using __builtin_ffsl is compilable" >&5
+--$as_echo_n "checking whether a program using __builtin_ffsl is compilable... " >&6; }
+--if ${je_cv_gcc_builtin_ffsl+:} false; then :
+--  $as_echo_n "(cached) " >&6
+--else
+--  cat confdefs.h - <<_ACEOF >conftest.$ac_ext
+--/* end confdefs.h.  */
+--
+--  #include <stdio.h>
+--  #include <strings.h>
+--  #include <string.h>
+--
+--int
+--main ()
+--{
+--
+--	{
+--		int rv = __builtin_ffsl(0x08);
+--		printf("%d\n", rv);
+--	}
+--
+--  ;
+--  return 0;
+--}
+--_ACEOF
+--if ac_fn_c_try_link "$LINENO"; then :
+--  je_cv_gcc_builtin_ffsl=yes
+--else
+--  je_cv_gcc_builtin_ffsl=no
+--fi
+--rm -f core conftest.err conftest.$ac_objext \
+--    conftest$ac_exeext conftest.$ac_ext
+--fi
+--{ $as_echo "$as_me:${as_lineno-$LINENO}: result: $je_cv_gcc_builtin_ffsl" >&5
+--$as_echo "$je_cv_gcc_builtin_ffsl" >&6; }
+--
+--  if test "x${je_cv_gcc_builtin_ffsl}" == "xyes" ; then
+--    $as_echo "#define JEMALLOC_INTERNAL_FFSL __builtin_ffsl" >>confdefs.h
+--
+--    $as_echo "#define JEMALLOC_INTERNAL_FFS __builtin_ffs" >>confdefs.h
+-+  if test "x${je_cv_function_ffsl}" == "xyes" ; then
+-+    $as_echo "#define JEMALLOC_INTERNAL_FFSL ffsl" >>confdefs.h
+-+
+-+    $as_echo "#define JEMALLOC_INTERNAL_FFS ffs" >>confdefs.h
+- 
+-   else
+-     as_fn_error $? "Cannot build without ffsl(3) or __builtin_ffsl()" "$LINENO" 5
+-   fi
+- fi
+- 
+- 
+- 
+-+
+- { $as_echo "$as_me:${as_lineno-$LINENO}: checking whether atomic(9) is compilable" >&5
+- $as_echo_n "checking whether atomic(9) is compilable... " >&6; }
+- if ${je_cv_atomic9+:} false; then :
+-   $as_echo_n "(cached) " >&6
+- else
+-   cat confdefs.h - <<_ACEOF >conftest.$ac_ext
+- /* end confdefs.h.  */
+- 
+-diff --git a/configure.ac b/configure.ac
+---- a/configure.ac
+-+++ b/configure.ac
+-@@ -1160,53 +1160,54 @@ fi
+- AC_SUBST([enable_tls])
+- if test "x${enable_tls}" = "x1" ; then
+-   AC_DEFINE_UNQUOTED([JEMALLOC_TLS], [ ])
+- elif test "x${force_tls}" = "x1" ; then
+-   AC_MSG_ERROR([Failed to configure TLS, which is mandatory for correct function])
+- fi
+- 
+- dnl ============================================================================
+--dnl Check for ffsl(3), then __builtin_ffsl(), and fail if neither are found.
+-+dnl Check for  __builtin_ffsl(), then ffsl(3), and fail if neither are found.
+- dnl One of those two functions should (theoretically) exist on all platforms
+- dnl that jemalloc currently has a chance of functioning on without modification.
+- dnl We additionally assume ffs() or __builtin_ffs() are defined if
+- dnl ffsl() or __builtin_ffsl() are defined, respectively.
+--JE_COMPILABLE([a program using ffsl], [
+-+JE_COMPILABLE([a program using __builtin_ffsl], [
+- #include <stdio.h>
+- #include <strings.h>
+- #include <string.h>
+- ], [
+- 	{
+--		int rv = ffsl(0x08);
+-+		int rv = __builtin_ffsl(0x08);
+- 		printf("%d\n", rv);
+- 	}
+--], [je_cv_function_ffsl])
+--if test "x${je_cv_function_ffsl}" == "xyes" ; then
+--  AC_DEFINE([JEMALLOC_INTERNAL_FFSL], [ffsl])
+--  AC_DEFINE([JEMALLOC_INTERNAL_FFS], [ffs])
+-+], [je_cv_gcc_builtin_ffsl])
+-+if test "x${je_cv_gcc_builtin_ffsl}" == "xyes" ; then
+-+  AC_DEFINE([JEMALLOC_INTERNAL_FFSL], [__builtin_ffsl])
+-+  AC_DEFINE([JEMALLOC_INTERNAL_FFS], [__builtin_ffs])
+- else
+--  JE_COMPILABLE([a program using __builtin_ffsl], [
+-+  JE_COMPILABLE([a program using ffsl], [
+-   #include <stdio.h>
+-   #include <strings.h>
+-   #include <string.h>
+-   ], [
+- 	{
+--		int rv = __builtin_ffsl(0x08);
+-+		int rv = ffsl(0x08);
+- 		printf("%d\n", rv);
+- 	}
+--  ], [je_cv_gcc_builtin_ffsl])
+--  if test "x${je_cv_gcc_builtin_ffsl}" == "xyes" ; then
+--    AC_DEFINE([JEMALLOC_INTERNAL_FFSL], [__builtin_ffsl])
+--    AC_DEFINE([JEMALLOC_INTERNAL_FFS], [__builtin_ffs])
+-+  ], [je_cv_function_ffsl])
+-+  if test "x${je_cv_function_ffsl}" == "xyes" ; then
+-+    AC_DEFINE([JEMALLOC_INTERNAL_FFSL], [ffsl])
+-+    AC_DEFINE([JEMALLOC_INTERNAL_FFS], [ffs])
+-   else
+-     AC_MSG_ERROR([Cannot build without ffsl(3) or __builtin_ffsl()])
+-   fi
+- fi
+- 
+-+
+- dnl ============================================================================
+- dnl Check for atomic(9) operations as provided on FreeBSD.
+- 
+- JE_COMPILABLE([atomic(9)], [
+- #include <sys/types.h>
+- #include <machine/atomic.h>
+- #include <inttypes.h>
+- ], [
+diff --git a/memory/jemalloc/0006-Fix-clang-warnings.patch b/memory/jemalloc/0006-Fix-clang-warnings.patch
+deleted file mode 100644
+index 33cd9fd..0000000
+--- a/memory/jemalloc/0006-Fix-clang-warnings.patch
++++ /dev/null
+@@ -1,93 +0,0 @@
+-diff --git a/src/prof.c b/src/prof.c
+---- a/src/prof.c
+-+++ b/src/prof.c
+-@@ -1057,25 +1057,25 @@ label_open_close_error:
+- 		prof_dump_ctx_cleanup(ctx.p, &ctx_ql);
+- 	malloc_mutex_unlock(&prof_dump_mtx);
+- 	return (true);
+- }
+- 
+- #define	DUMP_FILENAME_BUFSIZE	(PATH_MAX + 1)
+- #define	VSEQ_INVALID		UINT64_C(0xffffffffffffffff)
+- static void
+--prof_dump_filename(char *filename, char v, int64_t vseq)
+-+prof_dump_filename(char *filename, char v, uint64_t vseq)
+- {
+- 
+- 	cassert(config_prof);
+- 
+- 	if (vseq != VSEQ_INVALID) {
+- 	        /* "<prefix>.<pid>.<seq>.v<vseq>.heap" */
+- 		malloc_snprintf(filename, DUMP_FILENAME_BUFSIZE,
+--		    "%s.%d.%"PRIu64".%c%"PRId64".heap",
+-+		    "%s.%d.%"PRIu64".%c%"PRIu64".heap",
+- 		    opt_prof_prefix, (int)getpid(), prof_dump_seq, v, vseq);
+- 	} else {
+- 	        /* "<prefix>.<pid>.<seq>.<v>.heap" */
+- 		malloc_snprintf(filename, DUMP_FILENAME_BUFSIZE,
+- 		    "%s.%d.%"PRIu64".%c.heap",
+- 		    opt_prof_prefix, (int)getpid(), prof_dump_seq, v);
+- 	}
+- 	prof_dump_seq++;
+-diff --git a/src/util.c b/src/util.c
+---- a/src/util.c
+-+++ b/src/util.c
+-@@ -95,17 +95,17 @@ buferror(int err, char *buf, size_t bufl
+- 	return (strerror_r(err, buf, buflen));
+- #endif
+- }
+- 
+- uintmax_t
+- malloc_strtoumax(const char *restrict nptr, char **restrict endptr, int base)
+- {
+- 	uintmax_t ret, digit;
+--	int b;
+-+	unsigned b;
+- 	bool neg;
+- 	const char *p, *ns;
+- 
+- 	p = nptr;
+- 	if (base < 0 || base == 1 || base > 36) {
+- 		ns = p;
+- 		set_errno(EINVAL);
+- 		ret = UINTMAX_MAX;
+-@@ -376,17 +376,19 @@ malloc_vsnprintf(char *str, size_t size,
+- 		val = va_arg(ap, ssize_t);				\
+- 		break;							\
+- 	case 'z' | 0x80:						\
+- 		val = va_arg(ap, size_t);				\
+- 		break;							\
+- 	case 'p': /* Synthetic; used for %p. */				\
+- 		val = va_arg(ap, uintptr_t);				\
+- 		break;							\
+--	default: not_reached();						\
+-+	default: 							\
+-+		not_reached();						\
+-+		val = 0;						\
+- 	}								\
+- } while (0)
+- 
+- 	i = 0;
+- 	f = format;
+- 	while (true) {
+- 		switch (*f) {
+- 		case '\0': goto label_out;
+-@@ -543,17 +545,17 @@ malloc_vsnprintf(char *str, size_t size,
+- 				buf[1] = '\0';
+- 				APPEND_PADDED_S(buf, 1, width, left_justify);
+- 				f++;
+- 				break;
+- 			} case 's':
+- 				assert(len == '?' || len == 'l');
+- 				assert_not_implemented(len != 'l');
+- 				s = va_arg(ap, char *);
+--				slen = (prec < 0) ? strlen(s) : prec;
+-+				slen = (prec < 0) ? strlen(s) : (size_t)prec;
+- 				APPEND_PADDED_S(s, slen, width, left_justify);
+- 				f++;
+- 				break;
+- 			case 'p': {
+- 				uintmax_t val;
+- 				char buf[X2S_BUFSIZE];
+- 
+- 				GET_ARG_NUMERIC(val, 'p');
+diff --git a/memory/jemalloc/0007-Ensure-the-default-purgeable-zone-is-after-the-defau.patch b/memory/jemalloc/0007-Ensure-the-default-purgeable-zone-is-after-the-defau.patch
+deleted file mode 100644
+index 2801cfe5..0000000
+--- a/memory/jemalloc/0007-Ensure-the-default-purgeable-zone-is-after-the-defau.patch
++++ /dev/null
+@@ -1,59 +0,0 @@
+-diff --git a/src/zone.c b/src/zone.c
+-index e0302ef..a722287 100644
+---- a/src/zone.c
+-+++ b/src/zone.c
+-@@ -176,6 +176,7 @@ register_zone(void)
+- 	 * register jemalloc's.
+- 	 */
+- 	malloc_zone_t *default_zone = malloc_default_zone();
+-+	malloc_zone_t *purgeable_zone = NULL;
+- 	if (!default_zone->zone_name ||
+- 	    strcmp(default_zone->zone_name, "DefaultMallocZone") != 0) {
+- 		return;
+-@@ -237,22 +238,37 @@ register_zone(void)
+- 	 * run time.
+- 	 */
+- 	if (malloc_default_purgeable_zone != NULL)
+--		malloc_default_purgeable_zone();
+-+		purgeable_zone = malloc_default_purgeable_zone();
+- 
+- 	/* Register the custom zone.  At this point it won't be the default. */
+- 	malloc_zone_register(&zone);
+- 
+--	/*
+--	 * Unregister and reregister the default zone.  On OSX >= 10.6,
+--	 * unregistering takes the last registered zone and places it at the
+--	 * location of the specified zone.  Unregistering the default zone thus
+--	 * makes the last registered one the default.  On OSX < 10.6,
+--	 * unregistering shifts all registered zones.  The first registered zone
+--	 * then becomes the default.
+--	 */
+- 	do {
+- 		default_zone = malloc_default_zone();
+-+		/*
+-+		 * Unregister and reregister the default zone.  On OSX >= 10.6,
+-+		 * unregistering takes the last registered zone and places it
+-+		 * at the location of the specified zone.  Unregistering the
+-+		 * default zone thus makes the last registered one the default.
+-+		 * On OSX < 10.6, unregistering shifts all registered zones.
+-+		 * The first registered zone then becomes the default.
+-+		 */
+- 		malloc_zone_unregister(default_zone);
+- 		malloc_zone_register(default_zone);
+-+		/*
+-+		 * On OSX 10.6, having the default purgeable zone appear before
+-+		 * the default zone makes some things crash because it thinks it
+-+		 * owns the default zone allocated pointers. We thus unregister/
+-+		 * re-register it in order to ensure it's always after the
+-+		 * default zone. On OSX < 10.6, there is no purgeable zone, so
+-+		 * this does nothing. On OSX >= 10.6, unregistering replaces the
+-+		 * purgeable zone with the last registered zone above, i.e the
+-+		 * default zone. Registering it again then puts it at the end,
+-+		 * obviously after the default zone.
+-+		 */
+-+		if (purgeable_zone) {
+-+			malloc_zone_unregister(purgeable_zone);
+-+			malloc_zone_register(purgeable_zone);
+-+		}
+- 	} while (malloc_default_zone() != &zone);
+- }
+diff --git a/memory/jemalloc/0008-Allow-to-build-with-clang-cl.patch b/memory/jemalloc/0008-Allow-to-build-with-clang-cl.patch
+deleted file mode 100644
+index 09865d3..0000000
+--- a/memory/jemalloc/0008-Allow-to-build-with-clang-cl.patch
++++ /dev/null
+@@ -1,22 +0,0 @@
+-diff --git a/include/msvc_compat/C99/stdbool.h b/include/msvc_compat/C99/stdbool.h
+---- a/include/msvc_compat/C99/stdbool.h
+-+++ b/include/msvc_compat/C99/stdbool.h
+-@@ -1,16 +1,18 @@
+- #ifndef stdbool_h
+- #define stdbool_h
+- 
+- #include <wtypes.h>
+- 
+- /* MSVC doesn't define _Bool or bool in C, but does have BOOL */
+- /* Note this doesn't pass autoconf's test because (bool) 0.5 != true */
+-+#ifndef __clang__
+- typedef BOOL _Bool;
+-+#endif
+- 
+- #define bool _Bool
+- #define true 1
+- #define false 0
+- 
+- #define __bool_true_false_are_defined 1
+- 
+- #endif /* stdbool_h */
+diff --git a/memory/jemalloc/0009-Remove-srcroot-from-cfghdrs_in-cfgoutputs_in-and-cfg.patch b/memory/jemalloc/0009-Remove-srcroot-from-cfghdrs_in-cfgoutputs_in-and-cfg.patch
+deleted file mode 100644
+index 4562420..0000000
+--- a/memory/jemalloc/0009-Remove-srcroot-from-cfghdrs_in-cfgoutputs_in-and-cfg.patch
++++ /dev/null
+@@ -1,225 +0,0 @@
+-diff --git a/Makefile.in b/Makefile.in
+---- a/Makefile.in
+-+++ b/Makefile.in
+-@@ -37,19 +37,19 @@ EXE := @exe@
+- LIBPREFIX := @libprefix@
+- REV := @rev@
+- install_suffix := @install_suffix@
+- ABI := @abi@
+- XSLTPROC := @XSLTPROC@
+- AUTOCONF := @AUTOCONF@
+- _RPATH = @RPATH@
+- RPATH = $(if $(1),$(call _RPATH,$(1)))
+--cfghdrs_in := @cfghdrs_in@
+-+cfghdrs_in := $(addprefix $(srcroot),@cfghdrs_in@)
+- cfghdrs_out := @cfghdrs_out@
+--cfgoutputs_in := @cfgoutputs_in@
+-+cfgoutputs_in := $(addprefix $(srcroot),@cfgoutputs_in@)
+- cfgoutputs_out := @cfgoutputs_out@
+- enable_autogen := @enable_autogen@
+- enable_code_coverage := @enable_code_coverage@
+- enable_experimental := @enable_experimental@
+- enable_zone_allocator := @enable_zone_allocator@
+- DSO_LDFLAGS = @DSO_LDFLAGS@
+- SOREV = @SOREV@
+- PIC_CFLAGS = @PIC_CFLAGS@
+-diff --git a/configure b/configure
+---- a/configure
+-+++ b/configure
+-@@ -5654,25 +5654,25 @@ else
+- fi
+- 
+- install_suffix="$INSTALL_SUFFIX"
+- 
+- 
+- je_="je_"
+- 
+- 
+--cfgoutputs_in="${srcroot}Makefile.in"
+--cfgoutputs_in="${cfgoutputs_in} ${srcroot}doc/html.xsl.in"
+--cfgoutputs_in="${cfgoutputs_in} ${srcroot}doc/manpages.xsl.in"
+--cfgoutputs_in="${cfgoutputs_in} ${srcroot}doc/jemalloc.xml.in"
+--cfgoutputs_in="${cfgoutputs_in} ${srcroot}include/jemalloc/jemalloc_macros.h.in"
+--cfgoutputs_in="${cfgoutputs_in} ${srcroot}include/jemalloc/jemalloc_protos.h.in"
+--cfgoutputs_in="${cfgoutputs_in} ${srcroot}include/jemalloc/internal/jemalloc_internal.h.in"
+--cfgoutputs_in="${cfgoutputs_in} ${srcroot}test/test.sh.in"
+--cfgoutputs_in="${cfgoutputs_in} ${srcroot}test/include/test/jemalloc_test.h.in"
+-+cfgoutputs_in="Makefile.in"
+-+cfgoutputs_in="${cfgoutputs_in} doc/html.xsl.in"
+-+cfgoutputs_in="${cfgoutputs_in} doc/manpages.xsl.in"
+-+cfgoutputs_in="${cfgoutputs_in} doc/jemalloc.xml.in"
+-+cfgoutputs_in="${cfgoutputs_in} include/jemalloc/jemalloc_macros.h.in"
+-+cfgoutputs_in="${cfgoutputs_in} include/jemalloc/jemalloc_protos.h.in"
+-+cfgoutputs_in="${cfgoutputs_in} include/jemalloc/internal/jemalloc_internal.h.in"
+-+cfgoutputs_in="${cfgoutputs_in} test/test.sh.in"
+-+cfgoutputs_in="${cfgoutputs_in} test/include/test/jemalloc_test.h.in"
+- 
+- cfgoutputs_out="Makefile"
+- cfgoutputs_out="${cfgoutputs_out} doc/html.xsl"
+- cfgoutputs_out="${cfgoutputs_out} doc/manpages.xsl"
+- cfgoutputs_out="${cfgoutputs_out} doc/jemalloc.xml"
+- cfgoutputs_out="${cfgoutputs_out} include/jemalloc/jemalloc_macros.h"
+- cfgoutputs_out="${cfgoutputs_out} include/jemalloc/jemalloc_protos.h"
+- cfgoutputs_out="${cfgoutputs_out} include/jemalloc/internal/jemalloc_internal.h"
+-@@ -5684,28 +5684,28 @@ cfgoutputs_tup="${cfgoutputs_tup} doc/ht
+- cfgoutputs_tup="${cfgoutputs_tup} doc/manpages.xsl:doc/manpages.xsl.in"
+- cfgoutputs_tup="${cfgoutputs_tup} doc/jemalloc.xml:doc/jemalloc.xml.in"
+- cfgoutputs_tup="${cfgoutputs_tup} include/jemalloc/jemalloc_macros.h:include/jemalloc/jemalloc_macros.h.in"
+- cfgoutputs_tup="${cfgoutputs_tup} include/jemalloc/jemalloc_protos.h:include/jemalloc/jemalloc_protos.h.in"
+- cfgoutputs_tup="${cfgoutputs_tup} include/jemalloc/internal/jemalloc_internal.h"
+- cfgoutputs_tup="${cfgoutputs_tup} test/test.sh:test/test.sh.in"
+- cfgoutputs_tup="${cfgoutputs_tup} test/include/test/jemalloc_test.h:test/include/test/jemalloc_test.h.in"
+- 
+--cfghdrs_in="${srcroot}include/jemalloc/jemalloc_defs.h.in"
+--cfghdrs_in="${cfghdrs_in} ${srcroot}include/jemalloc/internal/jemalloc_internal_defs.h.in"
+--cfghdrs_in="${cfghdrs_in} ${srcroot}include/jemalloc/internal/private_namespace.sh"
+--cfghdrs_in="${cfghdrs_in} ${srcroot}include/jemalloc/internal/private_unnamespace.sh"
+--cfghdrs_in="${cfghdrs_in} ${srcroot}include/jemalloc/internal/private_symbols.txt"
+--cfghdrs_in="${cfghdrs_in} ${srcroot}include/jemalloc/internal/public_namespace.sh"
+--cfghdrs_in="${cfghdrs_in} ${srcroot}include/jemalloc/internal/public_unnamespace.sh"
+--cfghdrs_in="${cfghdrs_in} ${srcroot}include/jemalloc/internal/size_classes.sh"
+--cfghdrs_in="${cfghdrs_in} ${srcroot}include/jemalloc/jemalloc_rename.sh"
+--cfghdrs_in="${cfghdrs_in} ${srcroot}include/jemalloc/jemalloc_mangle.sh"
+--cfghdrs_in="${cfghdrs_in} ${srcroot}include/jemalloc/jemalloc.sh"
+--cfghdrs_in="${cfghdrs_in} ${srcroot}test/include/test/jemalloc_test_defs.h.in"
+-+cfghdrs_in="include/jemalloc/jemalloc_defs.h.in"
+-+cfghdrs_in="${cfghdrs_in} include/jemalloc/internal/jemalloc_internal_defs.h.in"
+-+cfghdrs_in="${cfghdrs_in} include/jemalloc/internal/private_namespace.sh"
+-+cfghdrs_in="${cfghdrs_in} include/jemalloc/internal/private_unnamespace.sh"
+-+cfghdrs_in="${cfghdrs_in} include/jemalloc/internal/private_symbols.txt"
+-+cfghdrs_in="${cfghdrs_in} include/jemalloc/internal/public_namespace.sh"
+-+cfghdrs_in="${cfghdrs_in} include/jemalloc/internal/public_unnamespace.sh"
+-+cfghdrs_in="${cfghdrs_in} include/jemalloc/internal/size_classes.sh"
+-+cfghdrs_in="${cfghdrs_in} include/jemalloc/jemalloc_rename.sh"
+-+cfghdrs_in="${cfghdrs_in} include/jemalloc/jemalloc_mangle.sh"
+-+cfghdrs_in="${cfghdrs_in} include/jemalloc/jemalloc.sh"
+-+cfghdrs_in="${cfghdrs_in} test/include/test/jemalloc_test_defs.h.in"
+- 
+- cfghdrs_out="include/jemalloc/jemalloc_defs.h"
+- cfghdrs_out="${cfghdrs_out} include/jemalloc/jemalloc${install_suffix}.h"
+- cfghdrs_out="${cfghdrs_out} include/jemalloc/internal/private_namespace.h"
+- cfghdrs_out="${cfghdrs_out} include/jemalloc/internal/private_unnamespace.h"
+- cfghdrs_out="${cfghdrs_out} include/jemalloc/internal/public_symbols.txt"
+- cfghdrs_out="${cfghdrs_out} include/jemalloc/internal/public_namespace.h"
+- cfghdrs_out="${cfghdrs_out} include/jemalloc/internal/public_unnamespace.h"
+-@@ -5713,18 +5713,18 @@ cfghdrs_out="${cfghdrs_out} include/jema
+- cfghdrs_out="${cfghdrs_out} include/jemalloc/jemalloc_protos_jet.h"
+- cfghdrs_out="${cfghdrs_out} include/jemalloc/jemalloc_rename.h"
+- cfghdrs_out="${cfghdrs_out} include/jemalloc/jemalloc_mangle.h"
+- cfghdrs_out="${cfghdrs_out} include/jemalloc/jemalloc_mangle_jet.h"
+- cfghdrs_out="${cfghdrs_out} include/jemalloc/internal/jemalloc_internal_defs.h"
+- cfghdrs_out="${cfghdrs_out} test/include/test/jemalloc_test_defs.h"
+- 
+- cfghdrs_tup="include/jemalloc/jemalloc_defs.h:include/jemalloc/jemalloc_defs.h.in"
+--cfghdrs_tup="${cfghdrs_tup} include/jemalloc/internal/jemalloc_internal_defs.h:${srcroot}include/jemalloc/internal/jemalloc_internal_defs.h.in"
+--cfghdrs_tup="${cfghdrs_tup} test/include/test/jemalloc_test_defs.h:${srcroot}test/include/test/jemalloc_test_defs.h.in"
+-+cfghdrs_tup="${cfghdrs_tup} include/jemalloc/internal/jemalloc_internal_defs.h:include/jemalloc/internal/jemalloc_internal_defs.h.in"
+-+cfghdrs_tup="${cfghdrs_tup} test/include/test/jemalloc_test_defs.h:test/include/test/jemalloc_test_defs.h.in"
+- 
+- # Check whether --enable-cc-silence was given.
+- if test "${enable_cc_silence+set}" = set; then :
+-   enableval=$enable_cc_silence; if test "x$enable_cc_silence" = "xno" ; then
+-   enable_cc_silence="0"
+- else
+-   enable_cc_silence="1"
+- fi
+-diff --git a/configure.ac b/configure.ac
+---- a/configure.ac
+-+++ b/configure.ac
+-@@ -546,25 +546,25 @@ AC_ARG_WITH([install_suffix],
+- install_suffix="$INSTALL_SUFFIX"
+- AC_SUBST([install_suffix])
+- 
+- dnl Substitute @je_@ in jemalloc_protos.h.in, primarily to make generation of
+- dnl jemalloc_protos_jet.h easy.
+- je_="je_"
+- AC_SUBST([je_])
+- 
+--cfgoutputs_in="${srcroot}Makefile.in"
+--cfgoutputs_in="${cfgoutputs_in} ${srcroot}doc/html.xsl.in"
+--cfgoutputs_in="${cfgoutputs_in} ${srcroot}doc/manpages.xsl.in"
+--cfgoutputs_in="${cfgoutputs_in} ${srcroot}doc/jemalloc.xml.in"
+--cfgoutputs_in="${cfgoutputs_in} ${srcroot}include/jemalloc/jemalloc_macros.h.in"
+--cfgoutputs_in="${cfgoutputs_in} ${srcroot}include/jemalloc/jemalloc_protos.h.in"
+--cfgoutputs_in="${cfgoutputs_in} ${srcroot}include/jemalloc/internal/jemalloc_internal.h.in"
+--cfgoutputs_in="${cfgoutputs_in} ${srcroot}test/test.sh.in"
+--cfgoutputs_in="${cfgoutputs_in} ${srcroot}test/include/test/jemalloc_test.h.in"
+-+cfgoutputs_in="Makefile.in"
+-+cfgoutputs_in="${cfgoutputs_in} doc/html.xsl.in"
+-+cfgoutputs_in="${cfgoutputs_in} doc/manpages.xsl.in"
+-+cfgoutputs_in="${cfgoutputs_in} doc/jemalloc.xml.in"
+-+cfgoutputs_in="${cfgoutputs_in} include/jemalloc/jemalloc_macros.h.in"
+-+cfgoutputs_in="${cfgoutputs_in} include/jemalloc/jemalloc_protos.h.in"
+-+cfgoutputs_in="${cfgoutputs_in} include/jemalloc/internal/jemalloc_internal.h.in"
+-+cfgoutputs_in="${cfgoutputs_in} test/test.sh.in"
+-+cfgoutputs_in="${cfgoutputs_in} test/include/test/jemalloc_test.h.in"
+- 
+- cfgoutputs_out="Makefile"
+- cfgoutputs_out="${cfgoutputs_out} doc/html.xsl"
+- cfgoutputs_out="${cfgoutputs_out} doc/manpages.xsl"
+- cfgoutputs_out="${cfgoutputs_out} doc/jemalloc.xml"
+- cfgoutputs_out="${cfgoutputs_out} include/jemalloc/jemalloc_macros.h"
+- cfgoutputs_out="${cfgoutputs_out} include/jemalloc/jemalloc_protos.h"
+- cfgoutputs_out="${cfgoutputs_out} include/jemalloc/internal/jemalloc_internal.h"
+-@@ -576,28 +576,28 @@ cfgoutputs_tup="${cfgoutputs_tup} doc/ht
+- cfgoutputs_tup="${cfgoutputs_tup} doc/manpages.xsl:doc/manpages.xsl.in"
+- cfgoutputs_tup="${cfgoutputs_tup} doc/jemalloc.xml:doc/jemalloc.xml.in"
+- cfgoutputs_tup="${cfgoutputs_tup} include/jemalloc/jemalloc_macros.h:include/jemalloc/jemalloc_macros.h.in"
+- cfgoutputs_tup="${cfgoutputs_tup} include/jemalloc/jemalloc_protos.h:include/jemalloc/jemalloc_protos.h.in"
+- cfgoutputs_tup="${cfgoutputs_tup} include/jemalloc/internal/jemalloc_internal.h"
+- cfgoutputs_tup="${cfgoutputs_tup} test/test.sh:test/test.sh.in"
+- cfgoutputs_tup="${cfgoutputs_tup} test/include/test/jemalloc_test.h:test/include/test/jemalloc_test.h.in"
+- 
+--cfghdrs_in="${srcroot}include/jemalloc/jemalloc_defs.h.in"
+--cfghdrs_in="${cfghdrs_in} ${srcroot}include/jemalloc/internal/jemalloc_internal_defs.h.in"
+--cfghdrs_in="${cfghdrs_in} ${srcroot}include/jemalloc/internal/private_namespace.sh"
+--cfghdrs_in="${cfghdrs_in} ${srcroot}include/jemalloc/internal/private_unnamespace.sh"
+--cfghdrs_in="${cfghdrs_in} ${srcroot}include/jemalloc/internal/private_symbols.txt"
+--cfghdrs_in="${cfghdrs_in} ${srcroot}include/jemalloc/internal/public_namespace.sh"
+--cfghdrs_in="${cfghdrs_in} ${srcroot}include/jemalloc/internal/public_unnamespace.sh"
+--cfghdrs_in="${cfghdrs_in} ${srcroot}include/jemalloc/internal/size_classes.sh"
+--cfghdrs_in="${cfghdrs_in} ${srcroot}include/jemalloc/jemalloc_rename.sh"
+--cfghdrs_in="${cfghdrs_in} ${srcroot}include/jemalloc/jemalloc_mangle.sh"
+--cfghdrs_in="${cfghdrs_in} ${srcroot}include/jemalloc/jemalloc.sh"
+--cfghdrs_in="${cfghdrs_in} ${srcroot}test/include/test/jemalloc_test_defs.h.in"
+-+cfghdrs_in="include/jemalloc/jemalloc_defs.h.in"
+-+cfghdrs_in="${cfghdrs_in} include/jemalloc/internal/jemalloc_internal_defs.h.in"
+-+cfghdrs_in="${cfghdrs_in} include/jemalloc/internal/private_namespace.sh"
+-+cfghdrs_in="${cfghdrs_in} include/jemalloc/internal/private_unnamespace.sh"
+-+cfghdrs_in="${cfghdrs_in} include/jemalloc/internal/private_symbols.txt"
+-+cfghdrs_in="${cfghdrs_in} include/jemalloc/internal/public_namespace.sh"
+-+cfghdrs_in="${cfghdrs_in} include/jemalloc/internal/public_unnamespace.sh"
+-+cfghdrs_in="${cfghdrs_in} include/jemalloc/internal/size_classes.sh"
+-+cfghdrs_in="${cfghdrs_in} include/jemalloc/jemalloc_rename.sh"
+-+cfghdrs_in="${cfghdrs_in} include/jemalloc/jemalloc_mangle.sh"
+-+cfghdrs_in="${cfghdrs_in} include/jemalloc/jemalloc.sh"
+-+cfghdrs_in="${cfghdrs_in} test/include/test/jemalloc_test_defs.h.in"
+- 
+- cfghdrs_out="include/jemalloc/jemalloc_defs.h"
+- cfghdrs_out="${cfghdrs_out} include/jemalloc/jemalloc${install_suffix}.h"
+- cfghdrs_out="${cfghdrs_out} include/jemalloc/internal/private_namespace.h"
+- cfghdrs_out="${cfghdrs_out} include/jemalloc/internal/private_unnamespace.h"
+- cfghdrs_out="${cfghdrs_out} include/jemalloc/internal/public_symbols.txt"
+- cfghdrs_out="${cfghdrs_out} include/jemalloc/internal/public_namespace.h"
+- cfghdrs_out="${cfghdrs_out} include/jemalloc/internal/public_unnamespace.h"
+-@@ -605,18 +605,18 @@ cfghdrs_out="${cfghdrs_out} include/jema
+- cfghdrs_out="${cfghdrs_out} include/jemalloc/jemalloc_protos_jet.h"
+- cfghdrs_out="${cfghdrs_out} include/jemalloc/jemalloc_rename.h"
+- cfghdrs_out="${cfghdrs_out} include/jemalloc/jemalloc_mangle.h"
+- cfghdrs_out="${cfghdrs_out} include/jemalloc/jemalloc_mangle_jet.h"
+- cfghdrs_out="${cfghdrs_out} include/jemalloc/internal/jemalloc_internal_defs.h"
+- cfghdrs_out="${cfghdrs_out} test/include/test/jemalloc_test_defs.h"
+- 
+- cfghdrs_tup="include/jemalloc/jemalloc_defs.h:include/jemalloc/jemalloc_defs.h.in"
+--cfghdrs_tup="${cfghdrs_tup} include/jemalloc/internal/jemalloc_internal_defs.h:${srcroot}include/jemalloc/internal/jemalloc_internal_defs.h.in"
+--cfghdrs_tup="${cfghdrs_tup} test/include/test/jemalloc_test_defs.h:${srcroot}test/include/test/jemalloc_test_defs.h.in"
+-+cfghdrs_tup="${cfghdrs_tup} include/jemalloc/internal/jemalloc_internal_defs.h:include/jemalloc/internal/jemalloc_internal_defs.h.in"
+-+cfghdrs_tup="${cfghdrs_tup} test/include/test/jemalloc_test_defs.h:test/include/test/jemalloc_test_defs.h.in"
+- 
+- dnl Do not silence irrelevant compiler warnings by default, since enabling this
+- dnl option incurs a performance penalty.
+- AC_ARG_ENABLE([cc-silence],
+-   [AS_HELP_STRING([--enable-cc-silence],
+-                   [Silence irrelevant compiler warnings])],
+- [if test "x$enable_cc_silence" = "xno" ; then
+-   enable_cc_silence="0"
+diff --git a/memory/jemalloc/moz.build b/memory/jemalloc/moz.build
+index 1ec3f80..a90dafe 100644
+--- a/memory/jemalloc/moz.build
++++ b/memory/jemalloc/moz.build
+@@ -27,6 +27,8 @@ SOURCES += [
+     'src/src/tcache.c',
+     'src/src/tsd.c',
+     'src/src/util.c',
++    'src/src/valgrind.c',
++    'src/src/zone.c'
+ ]
+ 
+ # Only OSX needs the zone allocation implementation,
+diff --git a/memory/jemalloc/update.sh b/memory/jemalloc/update.sh
+index 1691ce8..d76af8c 100755
+--- a/memory/jemalloc/update.sh
++++ b/memory/jemalloc/update.sh
+@@ -14,16 +14,6 @@ autoconf
+ git describe --long --abbrev=40 > VERSION
+ rm -rf .git .gitignore autom4te.cache
+ 
+-patch -p1 < ../0001-Use-a-configure-test-to-detect-whether-to-use-a-cons.patch
+-patch -p1 < ../0002-Use-ULL-prefix-instead-of-LLU-for-unsigned-long-long.patch
+-patch -p1 < ../0003-Don-t-use-msvc_compat-s-C99-headers-with-MSVC-versio.patch
+-patch -p1 < ../0004-Try-to-use-__builtin_ffsl-if-ffsl-is-unavailable.patch
+-patch -p1 < ../0005-Check-for-__builtin_ffsl-before-ffsl.patch
+-patch -p1 < ../0006-Fix-clang-warnings.patch
+-patch -p1 < ../0007-Ensure-the-default-purgeable-zone-is-after-the-defau.patch
+-patch -p1 < ../0008-Allow-to-build-with-clang-cl.patch
+-patch -p1 < ../0009-Remove-srcroot-from-cfghdrs_in-cfgoutputs_in-and-cfg.patch
+-
+ cd ..
+ hg addremove -q src
+ 

@@ -9,6 +9,9 @@
 /* mozmemory_wrap.h needs to be included before MFBT headers */
 #include "mozmemory_wrap.h"
 #include <mozilla/Assertions.h>
+#include "mozilla/TaggedAnonymousMemory.h"
+// Note: MozTaggedAnonymousMmap() could call an LD_PRELOADed mmap,
+// use only MozTagAnonymousMemory().
 #include "mozilla/Types.h"
 
 #define DLLEXPORT
@@ -47,9 +50,11 @@ void (*je_(malloc_message))(void*, const char* s) = _je_malloc_message;
 /* Jemalloc supports hooks that are called on chunk
  * allocate/deallocate/commit/decommit/purge/etc.
  *
- * We currently only hook commit, decommit and purge. We do this to tweak
- * the way chunks are handled so that RSS stays lower than it normally
- * would with the default jemalloc uses.
+ * We currently only hook alloc, commit, decommit and purge. We do this for
+ * tagging anonymous memory for finer-grained reporting where supported
+ * (alloc, commit and decommit hooks), and to tweak the way chunks are
+ * handled so that RSS stays lower than it normally would with the default
+ * jemalloc uses (commit, decommit and purge).
  * This somewhat matches the behavior of mozjemalloc, except it doesn't
  * rely on a double purge on mac, instead purging directly. (Yes, this
  * means we can get rid of jemalloc_purge_freed_pages at some point)
@@ -67,7 +72,6 @@ void (*je_(malloc_message))(void*, const char* s) = _je_malloc_message;
  *
  * We only set the above hooks, others are left with the default.
  */
-#if defined(XP_WIN) || defined(XP_DARWIN)
 class JemallocInit {
 public:
   JemallocInit()
@@ -83,6 +87,7 @@ public:
 
     size = sizeof(mib) / sizeof(mib[0]);
     je_(mallctlnametomib)("arena.0.chunk_hooks", mib, &size);
+    je_(mallctlbymib)(mib, size, &sDefaultChunkHooks, &hooks_len, nullptr, 0);
 
     /* Set the hooks on all the existing arenas. */
     for (unsigned arena = 0; arena < narenas; arena++) {
@@ -90,19 +95,22 @@ public:
       hooks_len = sizeof(hooks);
       je_(mallctlbymib)(mib, size, &hooks, &hooks_len, nullptr, 0);
 
-#ifdef XP_WIN
-      hooks.commit = CommitHook;
-      hooks.decommit = DecommitHook;
+#ifndef XP_WIN
+      hooks.alloc = AllocHook;
 #endif
 #ifdef XP_DARWIN
       hooks.purge = PurgeHook;
 #endif
+      hooks.commit = CommitHook;
+      hooks.decommit = DecommitHook;
 
       je_(mallctlbymib)(mib, size, nullptr, nullptr, &hooks, hooks_len);
     }
   }
 
 private:
+  static chunk_hooks_t sDefaultChunkHooks;
+
 #ifdef XP_WIN
   static bool
   CommitHook(void* chunk, size_t size, size_t offset, size_t length,
@@ -131,6 +139,54 @@ private:
   }
 #endif
 
+#ifndef XP_WIN
+  /* Hooks that delegate to the default hooks, but tag anonymous memory.
+   * MozTagAnonymousMemory is targeted at Android, and is not defined at all
+   * Windows, but defaults to a noop on all other platforms where support is
+   * absent.
+   */
+
+  static void*
+  AllocHook(void* chunk, size_t size, size_t alignment, bool* zero,
+            bool* commit, unsigned arena_ind)
+  {
+    chunk = sDefaultChunkHooks.alloc(chunk, size, alignment, zero, commit,
+                                     arena_ind);
+    if (chunk) {
+      MozTagAnonymousMemory(chunk, size, "jemalloc");
+    }
+    return chunk;
+  }
+
+  static bool
+  CommitHook(void* chunk, size_t size, size_t offset, size_t length,
+             unsigned arena_ind)
+  {
+    void* addr = reinterpret_cast<void*>(
+      reinterpret_cast<uintptr_t>(chunk) + static_cast<uintptr_t>(offset));
+
+    if (!sDefaultChunkHooks.commit(chunk, size, offset, length, arena_ind)) {
+      MozTagAnonymousMemory(addr, length, "jemalloc");
+      return false;
+    }
+    return true;
+  }
+
+  static bool
+  DecommitHook(void* chunk, size_t size, size_t offset, size_t length,
+               unsigned arena_ind)
+  {
+    void* addr = reinterpret_cast<void*>(
+      reinterpret_cast<uintptr_t>(chunk) + static_cast<uintptr_t>(offset));
+
+    if (!sDefaultChunkHooks.decommit(chunk, size, offset, length, arena_ind)) {
+      MozTagAnonymousMemory(addr, length, "jemalloc-decommitted");
+      return false;
+    }
+    return true;
+  }
+#endif
+
 #ifdef XP_DARWIN
   static bool
   PurgeHook(void* chunk, size_t size, size_t offset, size_t length,
@@ -147,8 +203,8 @@ private:
 };
 
 /* For the static constructor from the class above */
+chunk_hooks_t JemallocInit::sDefaultChunkHooks;
 JemallocInit gJemallocInit;
-#endif
 
 #else
 #include <mozilla/Assertions.h>

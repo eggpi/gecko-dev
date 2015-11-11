@@ -21,6 +21,7 @@ SharedLibrary('replace_jemalloc')
 
 USE_LIBS += [
     'jemalloc',
+    'mfbt',
 ]
 
 DEFINES['MOZ_JEMALLOC4'] = True

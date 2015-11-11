@@ -23,6 +23,9 @@ SOURCES += [
     'mozmemory_wrap.c',
 ]
 
+# For MozTagAnonymousMemory, used in jemalloc_config.cpp
+USE_LIBS = ['mfbt']
+
 if CONFIG['MOZ_JEMALLOC4']:
     SOURCES += [
         'mozjemalloc_compat.c',
